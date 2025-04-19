@@ -1,0 +1,51 @@
+/* 
+In BE i can store some grading system and through FE i can give choice to select a grading system according to their choice 
+*/
+
+await GradingScale.create({
+  schoolId: schoolAId,
+  name: "Standard 0-100",
+  scale: {
+    A: [90, 100],
+    B: [80, 89],
+    C: [70, 79],
+    D: [60, 69],
+    F: [0, 59],
+  },
+});
+
+await GradingScale.create({
+  schoolId: schoolBId,
+  name: "1-10 Scale",
+  scale: {
+    "10": [90, 100],
+    "9": [80, 89],
+    "8": [70, 79],
+    "7": [60, 69],
+    "6": [0, 59],
+  },
+});
+
+await GradingScale.create({
+  schoolId: schoolCId,
+  name: "Pass/Fail",
+  scale: {
+    Pass: [50, 100],
+    Fail: [0, 49],
+  },
+});
+
+
+// For create or update Permission [template/example] (expected format from FE to BE)
+{
+  "userId": "user-uuid",
+  "targetType": "class",
+  "targetId": "class-uuid",
+  "permissions": [
+    { "moduleName": "Invite", "actions": ["create", "send"] },
+    { "moduleName": "Assignment", "actions": ["submit", "grade"] }
+  ]
+}
+
+// Update permissions for user workflow:- (shortly)
+Validate inputs → Authenticate → Verify user/target → Validate modules → Process permissions (create new, delete old) in transaction → Fetch and return updated permissions → Commit or rollback.
