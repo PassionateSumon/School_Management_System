@@ -1,10 +1,5 @@
 import { DataType } from "sequelize-typescript";
 import { sequelize } from "../db/db";
-import { Class } from "./Class.model";
-import { User } from "./User.model";
-import { School } from "./School.model";
-import { Attendance } from "./Attendance.model";
-import { Subject } from "./Subject.model";
 
 const ClassSchedule = sequelize.define(
   "ClassSchedule",

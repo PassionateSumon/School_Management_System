@@ -13,8 +13,7 @@ import { statusCodes } from "../config/constants";
 import type {
   PaginationQuery,
   RolePermissionsQueryOrPayload,
-  UpdateRolePermissionsPayload,
-  UpdateUserPermissionsPayload,
+  UpdateUserOrRolePermissionsPayload,
   UserPermissionsQueryOrPayload,
 } from "../interfaces/PermissionInterfaces";
 import { sequelize } from "../db/db";
@@ -382,25 +381,29 @@ export const getSingleRolePermissions = async (
   }
 };
 
-export const updateSingleUserPermissions = async (
+export const updateSingleUserOrRolePermissions = async (
   req: Request,
   h: ResponseToolkit
 ) => {
   const transaction = await sequelize.transaction();
   try {
-    const { userId, targetType, targetId, permissions } =
-      req.payload as UpdateUserPermissionsPayload;
+    const { userId, roleId, targetType, targetId, permissions } =
+      req.payload as UpdateUserOrRolePermissionsPayload;
     const { limit, offset } = req.query as PaginationQuery;
 
-    if (!userId) {
+    if ((!userId && !roleId) || (userId && roleId)) {
       await transaction.rollback();
-      return error(null, "userId is required!", statusCodes.BAD_REQUEST)(h);
+      return error(
+        null,
+        "Exactly one of userId or roleId must be provided",
+        statusCodes.BAD_REQUEST
+      )(h);
     }
     if ((targetType && !targetId) || (!targetType && targetId)) {
       await transaction.rollback();
       return error(
         null,
-        "Both targetType and targetId must be provided together!",
+        "Both targetType and targetId must be provided together",
         statusCodes.BAD_REQUEST
       )(h);
     }
@@ -408,7 +411,7 @@ export const updateSingleUserPermissions = async (
       await transaction.rollback();
       return error(
         null,
-        "Target type must be one of 'school', 'class', 'event', or 'notice'!",
+        `Target type must be one of ${targetTypes.join(", ")}`,
         statusCodes.BAD_REQUEST
       )(h);
     }
@@ -420,14 +423,15 @@ export const updateSingleUserPermissions = async (
       await transaction.rollback();
       return error(
         null,
-        "permissions array is required and must not be empty",
+        "permissions array must be non-empty",
         statusCodes.BAD_REQUEST
       )(h);
     }
 
+    // Validate pagination
     const parsedLimit = limit ? parseInt(String(limit), 10) : undefined;
     const parsedOffset = offset ? parseInt(String(offset), 10) : undefined;
-    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 0)) {
+    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 1)) {
       await transaction.rollback();
       return error(
         null,
@@ -447,79 +451,107 @@ export const updateSingleUserPermissions = async (
       )(h);
     }
 
+    // Verify authenticated user
     const accessToken = req.state.accessToken;
-    // console.log(accessToken);
-    const decoded: any = JWTUtil.verifyAccessToken(accessToken);
+    const decoded = JWTUtil.verifyAccessToken(accessToken);
     if (!decoded) {
-      return error(null, "Invalid access token!", statusCodes.UNAUTHORIZED)(h);
+      await transaction.rollback();
+      return error(null, "Invalid access token", statusCodes.UNAUTHORIZED)(h);
     }
-    // console.log("decoded: ", decoded);
 
-    const requester: any = await User.findByPk(decoded.userId);
+    const requester = (await User.findByPk(decoded.id, {
+      transaction,
+    })) as any;
     if (!requester || !requester.isActive) {
+      await transaction.rollback();
       return error(
         null,
-        "Requester not found or inactive!",
+        "Requester not found or inactive",
         statusCodes.NOT_FOUND
       )(h);
     }
 
-    // Verify target user
-    const user: any = await User.findByPk(userId);
-    if (!user || !user.isActive) {
+    // Validate target entity
+    let entity: any = null;
+    let defaultSchoolId: string | undefined;
+    if (userId) {
+      entity = await User.findByPk(userId, { transaction });
+      defaultSchoolId = (entity as any)?.schoolId;
+    } else {
+      entity = await Role.findByPk(roleId, { transaction });
+      defaultSchoolId = (entity as any)?.schoolId;
+    }
+    if (!entity || !entity.isActive) {
+      await transaction.rollback();
       return error(
         null,
-        "User not found or inactive!",
+        `${userId ? "User" : "Role"} not found or inactive`,
         statusCodes.NOT_FOUND
       )(h);
     }
+    if (!targetType && !defaultSchoolId) {
+      await transaction.rollback();
+      return error(
+        null,
+        `${
+          userId ? "User" : "Role"
+        } must have a schoolId if targetType is not provided`,
+        statusCodes.BAD_REQUEST
+      )(h);
+    }
 
+    // Validate target resource
+    let target: any = null;
     if (targetType && targetId) {
-      let target;
-      if (targetType === "school") {
-        target = await School.findByPk(targetId);
-      } else if (targetType === "class") {
-        target = await Class.findByPk(targetId);
-      } else if (targetType === "event") {
-        target = await Event.findByPk(targetId);
-      }
+      if (targetType === "school")
+        target = await School.findByPk(targetId, { transaction });
+      else if (targetType === "class")
+        target = await Class.findByPk(targetId, { transaction });
+      else if (targetType === "event")
+        target = await Event.findByPk(targetId, { transaction });
       if (!target) {
+        await transaction.rollback();
         return error(
           null,
-          `${targetType} not found!`,
+          `${targetType} not found with ID ${targetId}`,
           statusCodes.NOT_FOUND
         )(h);
       }
     }
 
-    // Validate module in One query:
-    const moduleNames = [
-      ...new Set(permissions.map((perm: any) => perm.moduleName)),
-    ]; // remove duplicates
+    // Validate modules
+    const moduleNames = [...new Set(permissions.map((p) => p.moduleName))];
     const modules = (await Module.findAll({
-      where: {
-        name: { [Op.in]: moduleNames },
-      },
+      where: { name: { [Op.in]: moduleNames } },
       attributes: ["id", "name"],
       transaction,
-    })) as any;
-
-    const moduleMap = new Map(modules.map((mod: any) => [mod.name, mod]));
+    })) as any[];
+    const moduleMap = new Map(modules.map((m) => [m.name, m]));
     for (const moduleName of moduleNames) {
       if (!moduleMap.has(moduleName)) {
         await transaction.rollback();
         return error(
           null,
-          `Module ${moduleName} not found!`,
+          `Module '${moduleName}' not found`,
           statusCodes.NOT_FOUND
         )(h);
       }
     }
 
-    // Process Permissions -->
+    // process permisions
+    const scope = userId ? "specific" : "all";
+    const whereClause: any = userId ? { userId, scope } : { roleId, scope };
+    if (targetType && targetId) {
+      whereClause.targetType = targetType;
+      whereClause.targetId = targetId;
+    } else {
+      whereClause.targetType = "school";
+      whereClause.targetId = defaultSchoolId;
+    }
+
     const permissionsToCreate: any[] = [];
-    const moduleIdsToKeep: any[] = [];
-    const actionsToKeep: { [moduleId: string]: string } = {};
+    const permissionsToDelete: any[] = [];
+    const moduleIdsProcessed: string[] = [];
 
     for (const perm of permissions) {
       const { moduleName, actions } = perm;
@@ -533,7 +565,7 @@ export const updateSingleUserPermissions = async (
           statusCodes.BAD_REQUEST
         )(h);
       }
-      const uniqueActions: any = [...new Set(actions)]; // remove duplicates
+      const uniqueActions = [...new Set(actions)]; // remove duplicates
       for (const action of uniqueActions) {
         if (typeof action !== "string" || action.trim() === "") {
           await transaction.rollback();
@@ -545,103 +577,86 @@ export const updateSingleUserPermissions = async (
         }
       }
 
-      moduleIdsToKeep.push(module.id);
-      actionsToKeep[module.id] = uniqueActions;
+      moduleIdsProcessed.push(module.id);
 
-      // Create new permissions
-      for (const action of uniqueActions) {
-        const permissionData = {
-          id: DataType.UUIDV4,
-          title: `${moduleName} - ${action} on ${targetType || "school"}`,
-          userId,
-          roleId: null,
-          setterId: requester.id,
+      // Fetched existing permissions -->
+      const existingPermissions = (await Permission.findAll({
+        where: {
+          ...whereClause,
           moduleId: module.id,
-          targetType: targetType || "school",
-          targetId: targetId || user.schoolId,
-          action,
-          scope: "specific",
-        };
+        },
+        attributes: ["action"],
+        transaction,
+      })) as any[];
+      const existingActions = new Set(existingPermissions.map((p) => p.action));
 
-        // find existing
-        const exists = await Permission.findOne({
-          where: {
-            userId,
+      for (const action of uniqueActions) {
+        if (!existingActions.has(action)) {
+          // add new action
+          permissionsToCreate.push({
+            id: DataType.UUIDV4,
+            title: `Permission for ${moduleName} - ${action} on ${whereClause.targetType}`,
+            userId: userId || null,
+            roleId: roleId || null,
+            setterId: requester.id,
             moduleId: module.id,
+            targetType: whereClause.targetType,
+            targetId: whereClause.targetId,
             action,
-            targetType: permissionData.targetType,
-            targetId: permissionData.targetId,
-            scope: "specific",
-          },
-          transaction,
-        });
-        if (exists) {
-          await transaction.rollback();
-          return error(
-            null,
-            `Permission already exists!`,
-            statusCodes.BAD_REQUEST
-          )(h);
+            scope,
+          });
         } else {
-          permissionsToCreate.push(permissionData);
+          // if exist then change the title and the current setter
+          await Permission.update(
+            {
+              title: `Permission for ${moduleName} - ${action} on ${whereClause.targetType}`,
+              setterId: requester.id,
+            },
+            {
+              where: { ...whereClause, moduleId: module.id, action },
+              transaction,
+            }
+          );
+        }
+      }
+      // Remove the existing actions not in payload
+      for (const action of existingActions) {
+        if (!uniqueActions.includes(action)) {
+          permissionsToDelete.push({ moduleId: module.id, action });
         }
       }
     }
 
-    // Delete permissions which are not included in the new set
-    const whereClause: any = {
-      userId,
-      scope: "specific",
-      moduleId: { [Op.in]: moduleIdsToKeep },
-    };
-    if (targetId && targetType) {
-      whereClause.targetType = targetType;
-      whereClause.targetId = targetId;
-    }
-
-    await Permission.destroy({
-      where: {
-        ...whereClause,
-        action: {
-          [Op.notIn]: Object.values(actionsToKeep),
+    // Delete removed permissions
+    if (permissionsToDelete.length > 0) {
+      await Permission.destroy({
+        where: {
+          ...whereClause,
+          [Op.or]: permissionsToDelete.map(({ moduleId, action }) => ({
+            moduleId,
+            action,
+          })),
         },
-      },
-      transaction,
-    });
-
-    // Bulk craete for new permissions (Optimization)
-    if (permissionsToCreate.length > 0) {
-      await Permission.bulkCreate(permissionsToCreate, {
         transaction,
       });
     }
 
-    // fetch all the current permissions for response with pagination
-    const finalWhereClause: any = {
-      userId,
-      scope: "specific",
-    };
-    if (targetId && targetType) {
-      finalWhereClause.targetType = targetType;
-      finalWhereClause.targetId = targetId;
+    //create bulk permissions in the new list
+    if (permissionsToCreate.length > 0) {
+      await Permission.bulkCreate(permissionsToCreate, { transaction });
     }
 
-    const finalPermissions = await Permission.findAll({
-      where: finalWhereClause,
-      include: [
-        {
-          model: Module,
-          as: "module",
-          attributes: ["name"],
-        },
-      ],
+    // Fetch updated permissions
+    const finalPermissions = (await Permission.findAll({
+      where: { ...whereClause, moduleId: { [Op.in]: moduleIdsProcessed } },
+      include: [{ model: Module, as: "module", attributes: ["name"] }],
       attributes: ["id", "title", "action", "targetType", "targetId", "scope"],
       limit: parsedLimit,
       offset: parsedOffset,
       transaction,
-    });
+    })) as any[];
 
-    const formattedPermissions = finalPermissions.map((perm: any) => ({
+    const formattedPermissions = finalPermissions.map((perm) => ({
       id: perm.id,
       title: perm.title,
       moduleName: perm.module.name,
@@ -654,14 +669,14 @@ export const updateSingleUserPermissions = async (
     await transaction.commit();
     return success(
       formattedPermissions,
-      finalPermissions.length
+      formattedPermissions.length
         ? "Permissions updated successfully"
-        : "No permissions set",
+        : "No permissions updated",
       statusCodes.SUCCESS
     )(h);
   } catch (err: any) {
     await transaction.rollback();
-    console.error("Update Single User Permissions Error:", err);
+    console.error("Update Permissions for User or Role Error:", err);
     return error(
       null,
       err.message || "Internal server error",
@@ -669,152 +684,438 @@ export const updateSingleUserPermissions = async (
     )(h);
   }
 };
-export const updateSingleRolePermissions = async (
-  req: Request,
-  h: ResponseToolkit
-) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { roleId, targetType, targetId, permissions } =
-      req.payload as UpdateRolePermissionsPayload;
-    const { limit, offset } = req.query as PaginationQuery;
 
-    if (!roleId) {
-      await transaction.rollback();
-      return error(null, "userId is required!", statusCodes.BAD_REQUEST)(h);
-    }
-    if ((targetType && !targetId) || (!targetType && targetId)) {
-      await transaction.rollback();
-      return error(
-        null,
-        "Both targetType and targetId must be provided together!",
-        statusCodes.BAD_REQUEST
-      )(h);
-    }
-    if (targetType && !targetTypes.includes(targetType)) {
-      await transaction.rollback();
-      return error(
-        null,
-        "Target type must be one of 'school', 'class', 'event', or 'notice'!",
-        statusCodes.BAD_REQUEST
-      )(h);
-    }
-    if (
-      !permissions ||
-      !Array.isArray(permissions) ||
-      permissions.length === 0
-    ) {
-      await transaction.rollback();
-      return error(
-        null,
-        "permissions array is required and must not be empty",
-        statusCodes.BAD_REQUEST
-      )(h);
-    }
+// export const updateSingleUserPermissions = async (
+//   req: Request,
+//   h: ResponseToolkit
+// ) => {
+//   const transaction = await sequelize.transaction();
+//   try {
+//     const { userId, targetType, targetId, permissions } =
+//       req.payload as UpdateUserPermissionsPayload;
+//     const { limit, offset } = req.query as PaginationQuery;
 
-    const parsedLimit = limit ? parseInt(String(limit), 10) : undefined;
-    const parsedOffset = offset ? parseInt(String(offset), 10) : undefined;
-    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 0)) {
-      await transaction.rollback();
-      return error(
-        null,
-        "limit must be a positive integer",
-        statusCodes.BAD_REQUEST
-      )(h);
-    }
-    if (
-      parsedOffset !== undefined &&
-      (isNaN(parsedOffset) || parsedOffset < 0)
-    ) {
-      await transaction.rollback();
-      return error(
-        null,
-        "offset must be a non-negative integer",
-        statusCodes.BAD_REQUEST
-      )(h);
-    }
+//     if (!userId) {
+//       await transaction.rollback();
+//       return error(null, "userId is required!", statusCodes.BAD_REQUEST)(h);
+//     }
+//     if ((targetType && !targetId) || (!targetType && targetId)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "Both targetType and targetId must be provided together!",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (targetType && !targetTypes.includes(targetType)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "Target type must be one of 'school', 'class', 'event', or 'notice'!",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (
+//       /!permissions ||
+//       /!Array.isArray(permissions) ||
+//       permissions.length === 0
+//     ) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "permissions array is required and must not be empty",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
 
-    const accessToken = req.state.accessToken;
-    // console.log(accessToken);
-    const decoded: any = JWTUtil.verifyAccessToken(accessToken);
-    if (!decoded) {
-      return error(null, "Invalid access token!", statusCodes.UNAUTHORIZED)(h);
-    }
-    // console.log("decoded: ", decoded);
+//     const parsedLimit = limit ? parseInt(String(limit), 10) : undefined;
+//     const parsedOffset = offset ? parseInt(String(offset), 10) : undefined;
+//     if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 0)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "limit must be a positive integer",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (
+//       parsedOffset !== undefined &&
+//       (isNaN(parsedOffset) || parsedOffset < 0)
+//     ) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "offset must be a non-negative integer",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
 
-    const requester: any = await User.findByPk(decoded.userId);
-    if (!requester || !requester.isActive) {
-      return error(
-        null,
-        "Requester not found or inactive!",
-        statusCodes.NOT_FOUND
-      )(h);
-    }
+//     const accessToken = req.state.accessToken;
+//     // console.log(accessToken);
+//     const decoded: any = JWTUtil.verifyAccessToken(accessToken);
+//     if (!decoded) {
+//       return error(null, "Invalid access token!", statusCodes.UNAUTHORIZED)(h);
+//     }
+//     // console.log("decoded: ", decoded);
 
-    // Verify target role
-    const role = (await Role.findByPk(roleId, {
-      transaction,
-    })) as any;
-    if (!role || !role.isActive) {
-      await transaction.rollback();
-      return error(
-        null,
-        "Role not found or inactive",
-        statusCodes.NOT_FOUND
-      )(h);
-    }
+//     const requester: any = await User.findByPk(decoded.userId);
+//     if (!requester || !requester.isActive) {
+//       return error(
+//         null,
+//         "Requester not found or inactive!",
+//         statusCodes.NOT_FOUND
+//       )(h);
+//     }
 
-    if (targetType && targetId) {
-      let target;
-      if (targetType === "school") {
-        target = await School.findByPk(targetId);
-      } else if (targetType === "class") {
-        target = await Class.findByPk(targetId);
-      } else if (targetType === "event") {
-        target = await Event.findByPk(targetId);
-      }
-      if (!target) {
-        return error(
-          null,
-          `${targetType} not found!`,
-          statusCodes.NOT_FOUND
-        )(h);
-      }
-    }
+//     // Verify target user
+//     const user: any = await User.findByPk(userId);
+//     if (!user || !user.isActive) {
+//       return error(
+//         null,
+//         "User not found or inactive!",
+//         statusCodes.NOT_FOUND
+//       )(h);
+//     }
 
-    // Validate module in One query:
-    const moduleNames = [
-      ...new Set(permissions.map((perm: any) => perm.moduleName)),
-    ]; // remove duplicates
-    const modules = (await Module.findAll({
-      where: {
-        name: { [Op.in]: moduleNames },
-      },
-      attributes: ["id", "name"],
-      transaction,
-    })) as any;
+//     if (targetType && targetId) {
+//       let target;
+//       if (targetType === "school") {
+//         target = await School.findByPk(targetId);
+//       } else if (targetType === "class") {
+//         target = await Class.findByPk(targetId);
+//       } else if (targetType === "event") {
+//         target = await Event.findByPk(targetId);
+//       }
+//       if (!target) {
+//         return error(
+//           null,
+//           `${targetType} not found!`,
+//           statusCodes.NOT_FOUND
+//         )(h);
+//       }
+//     }
 
-    const moduleMap = new Map(modules.map((mod: any) => [mod.name, mod]));
-    for (const moduleName of moduleNames) {
-      if (!moduleMap.has(moduleName)) {
-        await transaction.rollback();
-        return error(
-          null,
-          `Module ${moduleName} not found!`,
-          statusCodes.NOT_FOUND
-        )(h);
-      }
-    }
+//     // Validate module in One query:
+//     const moduleNames = [
+//       ...new Set(permissions.map((perm: any) => perm.moduleName)),
+//     ]; // remove duplicates
+//     const modules = (await Module.findAll({
+//       where: {
+//         name: { [Op.in]: moduleNames },
+//       },
+//       attributes: ["id", "name"],
+//       transaction,
+//     })) as any;
 
-    
+//     const moduleMap = new Map(modules.map((mod: any) => [mod.name, mod]));
+//     for (const moduleName of moduleNames) {
+//       if (!moduleMap.has(moduleName)) {
+//         await transaction.rollback();
+//         return error(
+//           null,
+//           `Module ${moduleName} not found!`,
+//           statusCodes.NOT_FOUND
+//         )(h);
+//       }
+//     }
 
-  } catch (err: any) {
-    await transaction.rollback();
-    console.error("Update Single Role Permissions Error:", error);
-    return error(
-      null,
-      err.message || "Internal server error",
-      statusCodes.SERVER_ISSUE
-    )(h);
-  }
-};
+//     // Process Permissions -->
+//     const permissionsToCreate: any[] = [];
+//     const moduleIdsToKeep: any[] = [];
+//     const actionsToKeep: { [moduleId: string]: string } = {};
+
+//     for (const perm of permissions) {
+//       const { moduleName, actions } = perm;
+//       const module = moduleMap.get(moduleName) as any;
+
+//       if (!Array.isArray(actions) || actions.length === 0) {
+//         await transaction.rollback();
+//         return error(
+//           null,
+//           `Actions for module '${moduleName}' must be a non-empty array`,
+//           statusCodes.BAD_REQUEST
+//         )(h);
+//       }
+//       const uniqueActions: any = [...new Set(actions)]; // remove duplicates
+//       for (const action of uniqueActions) {
+//         if (typeof action !== "string" || action.trim() === "") {
+//           await transaction.rollback();
+//           return error(
+//             null,
+//             `Action '${action}' for module '${moduleName}' must be a non-empty string`,
+//             statusCodes.BAD_REQUEST
+//           )(h);
+//         }
+//       }
+
+//       moduleIdsToKeep.push(module.id);
+//       actionsToKeep[module.id] = uniqueActions;
+
+//       // Create new permissions
+//       for (const action of uniqueActions) {
+//         const permissionData = {
+//           id: DataType.UUIDV4,
+//           title: `${moduleName} - ${action} on ${targetType || "school"}`,
+//           userId,
+//           roleId: null,
+//           setterId: requester.id,
+//           moduleId: module.id,
+//           targetType: targetType || "school",
+//           targetId: targetId || user.schoolId,
+//           action,
+//           scope: "specific",
+//         };
+
+//         // find existing
+//         const exists = await Permission.findOne({
+//           where: {
+//             userId,
+//             moduleId: module.id,
+//             action,
+//             targetType: permissionData.targetType,
+//             targetId: permissionData.targetId,
+//             scope: "specific",
+//           },
+//           transaction,
+//         });
+//         if (exists) {
+//           await transaction.rollback();
+//           return error(
+//             null,
+//             `Permission already exists!`,
+//             statusCodes.BAD_REQUEST
+//           )(h);
+//         } else {
+//           permissionsToCreate.push(permissionData);
+//         }
+//       }
+//     }
+
+//     // Delete permissions which are not included in the new set
+//     const whereClause: any = {
+//       userId,
+//       scope: "specific",
+//       moduleId: { [Op.in]: moduleIdsToKeep },
+//     };
+//     if (targetId && targetType) {
+//       whereClause.targetType = targetType;
+//       whereClause.targetId = targetId;
+//     }
+
+//     await Permission.destroy({
+//       where: {
+//         ...whereClause,
+//         action: {
+//           [Op.notIn]: Object.values(actionsToKeep),
+//         },
+//       },
+//       transaction,
+//     });
+
+//     // Bulk craete for new permissions (Optimization)
+//     if (permissionsToCreate.length > 0) {
+//       await Permission.bulkCreate(permissionsToCreate, {
+//         transaction,
+//       });
+//     }
+
+//     // fetch all the current permissions for response with pagination
+//     const finalWhereClause: any = {
+//       userId,
+//       scope: "specific",
+//     };
+//     if (targetId && targetType) {
+//       finalWhereClause.targetType = targetType;
+//       finalWhereClause.targetId = targetId;
+//     }
+
+//     const finalPermissions = await Permission.findAll({
+//       where: finalWhereClause,
+//       include: [
+//         {
+//           model: Module,
+//           as: "module",
+//           attributes: ["name"],
+//         },
+//       ],
+//       attributes: ["id", "title", "action", "targetType", "targetId", "scope"],
+//       limit: parsedLimit,
+//       offset: parsedOffset,
+//       transaction,
+//     });
+
+//     const formattedPermissions = finalPermissions.map((perm: any) => ({
+//       id: perm.id,
+//       title: perm.title,
+//       moduleName: perm.module.name,
+//       action: perm.action,
+//       targetType: perm.targetType,
+//       targetId: perm.targetId,
+//       scope: perm.scope,
+//     }));
+
+//     await transaction.commit();
+//     return success(
+//       formattedPermissions,
+//       finalPermissions.length
+//         ? "Permissions updated successfully"
+//         : "No permissions set",
+//       statusCodes.SUCCESS
+//     )(h);
+//   } catch (err: any) {
+//     await transaction.rollback();
+//     console.error("Update Single User Permissions Error:", err);
+//     return error(
+//       null,
+//       err.message || "Internal server error",
+//       statusCodes.SERVER_ISSUE
+//     )(h);
+//   }
+// };
+// export const updateSingleRolePermissions = async (
+//   req: Request,
+//   h: ResponseToolkit
+// ) => {
+//   const transaction = await sequelize.transaction();
+//   try {
+//     const { roleId, targetType, targetId, permissions } =
+//       req.payload as UpdateRolePermissionsPayload;
+//     const { limit, offset } = req.query as PaginationQuery;
+
+//     if (!roleId) {
+//       await transaction.rollback();
+//       return error(null, "userId is required!", statusCodes.BAD_REQUEST)(h);
+//     }
+//     if ((targetType && !targetId) || (!targetType && targetId)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "Both targetType and targetId must be provided together!",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (targetType && !targetTypes.includes(targetType)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "Target type must be one of 'school', 'class', 'event', or 'notice'!",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (
+//       !permissions ||
+//       !Array.isArray(permissions) ||
+//       permissions.length === 0
+//     ) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "permissions array is required and must not be empty",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+
+//     const parsedLimit = limit ? parseInt(String(limit), 10) : undefined;
+//     const parsedOffset = offset ? parseInt(String(offset), 10) : undefined;
+//     if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 0)) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "limit must be a positive integer",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+//     if (
+//       parsedOffset !== undefined &&
+//       (isNaN(parsedOffset) || parsedOffset < 0)
+//     ) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "offset must be a non-negative integer",
+//         statusCodes.BAD_REQUEST
+//       )(h);
+//     }
+
+//     const accessToken = req.state.accessToken;
+//     // console.log(accessToken);
+//     const decoded: any = JWTUtil.verifyAccessToken(accessToken);
+//     if (!decoded) {
+//       return error(null, "Invalid access token!", statusCodes.UNAUTHORIZED)(h);
+//     }
+//     // console.log("decoded: ", decoded);
+
+//     const requester: any = await User.findByPk(decoded.userId);
+//     if (!requester || !requester.isActive) {
+//       return error(
+//         null,
+//         "Requester not found or inactive!",
+//         statusCodes.NOT_FOUND
+//       )(h);
+//     }
+
+//     // Verify target role
+//     const role = (await Role.findByPk(roleId, {
+//       transaction,
+//     })) as any;
+//     if (!role || !role.isActive) {
+//       await transaction.rollback();
+//       return error(
+//         null,
+//         "Role not found or inactive",
+//         statusCodes.NOT_FOUND
+//       )(h);
+//     }
+
+//     if (targetType && targetId) {
+//       let target;
+//       if (targetType === "school") {
+//         target = await School.findByPk(targetId);
+//       } else if (targetType === "class") {
+//         target = await Class.findByPk(targetId);
+//       } else if (targetType === "event") {
+//         target = await Event.findByPk(targetId);
+//       }
+//       if (!target) {
+//         return error(
+//           null,
+//           `${targetType} not found!`,
+//           statusCodes.NOT_FOUND
+//         )(h);
+//       }
+//     }
+
+//     // Validate module in One query:
+//     const moduleNames = [
+//       ...new Set(permissions.map((perm: any) => perm.moduleName)),
+//     ]; // remove duplicates
+//     const modules = (await Module.findAll({
+//       where: {
+//         name: { [Op.in]: moduleNames },
+//       },
+//       attributes: ["id", "name"],
+//       transaction,
+//     })) as any;
+
+//     const moduleMap = new Map(modules.map((mod: any) => [mod.name, mod]));
+//     for (const moduleName of moduleNames) {
+//       if (!moduleMap.has(moduleName)) {
+//         await transaction.rollback();
+//         return error(
+//           null,
+//           `Module ${moduleName} not found!`,
+//           statusCodes.NOT_FOUND
+//         )(h);
+//       }
+//     }
+
+//   } catch (err: any) {
+//     await transaction.rollback();
+//     console.error("Update Single Role Permissions Error:", error);
+//     return error(
+//       null,
+//       err.message || "Internal server error",
+//       statusCodes.SERVER_ISSUE
+//     )(h);
+//   }
+// };

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import crypto, { createHash, randomBytes } from "crypto";
 
 export class CryptoUtil {
   static generateSalt(): string {
@@ -12,4 +12,8 @@ export class CryptoUtil {
   static verifyPassword(password: string, salt: string, hash: string): boolean {
     return this.hashPassword(password, salt) === hash;
   }
+
+  static generateTempPassword = (): string => {
+    return crypto.randomBytes(8).toString("hex");
+  };
 }

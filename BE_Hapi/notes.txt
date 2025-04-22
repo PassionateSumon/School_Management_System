@@ -17,7 +17,7 @@ await GradingScale.create({
 await GradingScale.create({
   schoolId: schoolBId,
   name: "1-10 Scale",
-  scale: {
+  scale: {  
     "10": [90, 100],
     "9": [80, 89],
     "8": [70, 79],
@@ -49,3 +49,1730 @@ await GradingScale.create({
 
 // Update permissions for user workflow:- (shortly)
 Validate inputs → Authenticate → Verify user/target → Validate modules → Process permissions (create new, delete old) in transaction → Fetch and return updated permissions → Commit or rollback.
+
+
+--------------------------------
+
+i am sharing you 24 models of my school management system RBAC project email invite based model part by part. keep that because i'll ask and tell you to do something based on that
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { Class } from "./Class.model";
+import { User } from "./User.model";
+import { Subject } from "./Subject.model";
+
+const Assignment = sequelize.define(
+  "Assignment",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    dueDate: {
+      type: DataType.DATE,
+      allowNull: false,
+    },
+    fileURL: {
+      type: DataType.STRING,
+      allowNull: false,
+      validate: {
+        len: {
+          args: [1, 500],
+          msg: "File URL must be between 1 and 500 characters",
+        },
+        is: {
+          args: [/^(https?:\/\/)/],
+          msg: "File must be a valid URL",
+        },
+      },
+    },
+    teacherId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    subjectId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    status: {
+      type: DataType.ENUM("draft", "published"),
+      allowNull: false,
+      defaultValue: "draft",
+    },
+    maxPoints: {
+      type: DataType.FLOAT,
+      allowNull: false,
+      defaultValue: 100,
+    },
+  },
+  { tableName: "Assignment", timestamps: true }
+);
+
+export { Assignment };
+export type AssignmentType = typeof Assignment;
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { ClassSchedule } from "./ClassSchedule.model";
+import { User } from "./User.model";
+
+const Attendance = sequelize.define(
+  "Attendance",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    classScheduleId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    status: {
+      type: DataType.ENUM("present", "absent", "late"),
+      allowNull: false,
+      defaultValue: "absent",
+    },
+    markedById: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    markedAt: {
+      type: DataType.DATE,
+      allowNull: false,
+      defaultValue: DataType.NOW,
+    },
+  },
+  { tableName: "Attendance", timestamps: true }
+);
+
+
+export { Attendance };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { User } from "./User.model";
+import { Event } from "./Event.model";
+import { ClassSchedule } from "./ClassSchedule.model";
+import { ExamSchedule } from "./ExamSchedule.model";
+import { NoticeBoard } from "./NoticeBoard.model";
+import { Assignment } from "./Assignment.model";
+import { Department } from "./Department.model";
+
+const Class = sequelize.define(
+  "Class",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    departmentId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+  },
+  { tableName: "Class", timestamps: true }
+);
+
+export { Class };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Class } from "./Class.model";
+import { User } from "./User.model";
+import { School } from "./School.model";
+import { Attendance } from "./Attendance.model";
+import { Subject } from "./Subject.model";
+
+const ClassSchedule = sequelize.define(
+  "ClassSchedule",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    teacherId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    subjectId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    date: {
+      type: DataType.DATEONLY,
+      allowNull: false,
+    },
+    startTime: {
+      type: DataType.TIME,
+      allowNull: false,
+    },
+    endTime: {
+      type: DataType.TIME,
+      allowNull: false,
+      validate: {
+        isValid(value: any) {
+          if ((this as any).startTime > value) {
+            throw new Error("End time must be greater than start time.");
+          }
+        },
+      },
+    },
+  },
+  { tableName: "ClassSchedule", timestamps: true }
+);
+
+export { ClassSchedule };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Class } from "./Class.model";
+import { User } from "./User.model";
+
+const ClassStudent = sequelize.define(
+  "ClassStudent",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    studentId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "ClassStudent", timestamps: true }
+);
+export { ClassStudent };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { School } from "./School.model";
+
+const Complaint = sequelize.define(
+  "Complaint",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    subject: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "Complaint", timestamps: true }
+);
+
+export { Complaint };
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+
+const Degree = sequelize.define("Degree", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  schoolId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+}, {tableName: "Degree", timestamps: true});
+export { Degree };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { Class } from "./Class.model";
+import { User } from "./User.model";
+
+const Department = sequelize.define(
+  "Department",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "Department", timestamps: true }
+);
+
+export { Department };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+
+const Education = sequelize.define(
+  "Education",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    institute: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    startDate: {
+      type: DataType.DATE,
+      allowNull: false,
+    },
+    endDate: {
+      type: DataType.DATE,
+      allowNull: true,
+    },
+    certificate: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "Education", timestamps: true }
+);
+export { Education };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { Class } from "./Class.model";
+
+const Event = sequelize.define(
+  "Event",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    date: {
+      type: DataType.DATEONLY,
+      allowNull: false,
+    },
+    startTime: {
+      type: DataType.TIME,
+      allowNull: false,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    departmentId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    scope: {
+      type: DataType.ENUM("school", "class", "department"),
+      allowNull: false,
+      defaultValue: "class",
+    },
+  },
+  { tableName: "Event", timestamps: true }
+);
+
+export { Event };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Class } from "./Class.model";
+import { School } from "./School.model";
+import { User } from "./User.model";
+import { Subject } from "./Subject.model";
+
+const ExamSchedule = sequelize.define(
+  "ExamSchedule",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    invigilatorId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    subjectId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    date: {
+      type: DataType.DATE,
+      allowNull: false,
+    },
+    type: {
+      type: DataType.ENUM("Midterm", "Final", "Quiz", "Practical", "Other"),
+      allowNull: false,
+      defaultValue: "Other",
+    },
+    startTime: {
+      type: DataType.TIME,
+      allowNull: false,
+    },
+    endTime: {
+      type: DataType.TIME,
+      allowNull: false,
+      validate: {
+        isValid(value: any) {
+          if ((this as any).startTime > value) {
+            throw new Error("End time must be greater than start time.");
+          }
+        },
+      },
+    },
+    roomNo: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+  },
+  { tableName: "ExamSchedule", timestamps: true }
+);
+
+export { ExamSchedule };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { School } from "./School.model";
+
+const Experience = sequelize.define(
+  "Experience",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    organizationName: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    position: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    startDate: {
+      type: DataType.DATEONLY,
+      allowNull: false,
+    },
+    endDate: {
+      type: DataType.DATEONLY,
+      allowNull: true,
+    },
+  },
+  { tableName: "Experience", timestamps: true }
+);
+
+export { Experience };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+
+const GradingScale = sequelize.define(
+  "GradingScale",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    scale: {
+      type: DataType.JSON,
+      allowNull: false, // e.g., { "A": [90, 100], "B": [80, 89] }
+    },
+    isActive: {
+      type: DataType.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+  },
+  { tableName: "GradingScale", timestamps: true }
+);
+
+export { GradingScale };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { School } from "./School.model";
+import { Role } from "./Role.model";
+
+const Invite = sequelize.define(
+  "Invite",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    senderId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    receiverId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    roleId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    status: {
+      type: DataType.ENUM("pending", "accepted", "rejected", "expired"),
+      allowNull: false,
+      defaultValue: "pending",
+    },
+    expiresAt: {
+      type: DataType.DATE,
+      allowNull: false,
+      defaultValue: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+    resendCount: {
+      type: DataType.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+  },
+  { tableName: "Invite", timestamps: true }
+);
+
+export { Invite };
+export type InviteType = typeof Invite;
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Permission } from "./Permission.model";
+import { School } from "./School.model";
+
+const Module = sequelize.define(
+  "Module",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        notEmpty: true,
+        len: [1, 100],
+      },
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "Module", timestamps: true }
+);
+
+export { Module };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { School } from "./School.model";
+import { Class } from "./Class.model";
+import { Department } from "./Department.model";
+
+const NoticeBoard = sequelize.define(
+  "NoticeBoard",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    notice: {
+      type: DataType.TEXT,
+      allowNull: false,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: true, // Optional field for class-specific notices
+    },
+    departmentId: {
+      type: DataType.UUID,
+      allowNull: true, // Optional field for department-specific notices
+    },
+    status: {
+      type: DataType.ENUM("Draft", "Published", "Completed"),
+      allowNull: false,
+      defaultValue: "Draft",
+    },
+    publishedAt: {
+      type: DataType.DATE,
+      allowNull: false,
+      defaultValue: DataType.NOW,
+    },
+    file: {
+      type: DataType.STRING,
+      allowNull: true, // Optional field for file attachments
+      validate: {
+        len: {
+          args: [0, 500],
+          msg: "File URL must be up to 500 characters",
+        },
+        is: {
+          args: [/^(https?:\/\/)/],
+          msg: "File must be a valid URL",
+        },
+      },
+    },
+  },
+  { tableName: "NoticeBoard", timestamps: true }
+);
+
+export { NoticeBoard };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { Module } from "./Module.model";
+
+const Permission = sequelize.define(
+  "Permission",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    setterId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    roleId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    moduleId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    targetType: {
+      type: DataType.STRING, // ("school", "class", "event", "notice")
+      allowNull: false,
+    },
+    targetId: {
+      // ID of the resource (like classId, schoolId)
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    action: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    scope: {
+      type: DataType.ENUM("specific", "all"),
+      allowNull: false,
+      defaultValue: "specific",
+    },
+  },
+  {
+    tableName: "Permission",
+    timestamps: true,
+    indexes: [
+      { fields: ["userId"] },
+      { fields: ["roleId"] },
+      { fields: ["targetId"] },
+      { fields: ["moduleId"] },
+      { fields: ["targetType"] },
+    ],
+  }
+);
+
+export { Permission };
+export type PermissionType = typeof Permission;
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+
+const RefreshToken = sequelize.define(
+  "RefreshToken",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    token: {
+      type: DataType.STRING(350),
+      allowNull: false,
+      unique: true,
+    },
+    expiresAt: {
+      type: DataType.DATE,
+      allowNull: true,
+      validate: {
+        isFuture(value: Date) {
+          if (value <= new Date()) {
+            throw new Error("Expiration date must be in the future.");
+          }
+        },
+      },
+    },
+    userId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "RefreshToken", timestamps: true }
+);
+
+export { RefreshToken };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { Class } from "./Class.model";
+import { School } from "./School.model";
+import { Assignment } from "./Assignment.model";
+import { ExamSchedule } from "./ExamSchedule.model";
+
+const Result = sequelize.define(
+  "Result",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    studentId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    classId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    teacherId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    assignmentId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    examScheduleId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    subjectId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    file: {
+      type: DataType.STRING,
+      allowNull: false,
+      validate: {
+        len: {
+          args: [1, 500],
+          msg: "File path or URL must be between 1 and 500 characters",
+        },
+        is: {
+          args: [/^(https?:\/\/|\/)/],
+          msg: "File must be a valid URL or file path",
+        },
+      },
+    },
+    grade: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    maxPoints: {
+      type: DataType.FLOAT,
+      allowNull: true,
+    },
+    obtainedPoints: {
+      type: DataType.FLOAT,
+      allowNull: true,
+    },
+  },
+  { tableName: "Result", timestamps: true }
+);
+
+export { Result };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { User } from "./User.model";
+import { School } from "./School.model";
+
+const Role = sequelize.define(
+  "Role",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    priority: {
+      type: DataType.INTEGER,
+      allowNull: false,
+      defaultValue: 1000,
+      validate: {
+        min: {
+          args: [1],
+          msg: "Priority must be at least 1",
+        },
+        max: {
+          args: [1000],
+          msg: "Priority cannot exceed 1000",
+        },
+      },
+    },
+  },
+  { tableName: "Role", timestamps: true }
+);
+
+export { Role };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Invite } from "./Invite.model";
+import { Class } from "./Class.model";
+import { User } from "./User.model";
+import { Event } from "./Event.model";
+import { ClassSchedule } from "./ClassSchedule.model";
+import { Complaint } from "./Complaint.model";
+import { Role } from "./Role.model";
+import { ExamSchedule } from "./ExamSchedule.model";
+import { Experience } from "./Experience.model";
+import { NoticeBoard } from "./NoticeBoard.model";
+import { Assignment } from "./Assignment.model";
+import { Module } from "./Module.model";
+import { GradingScale } from "./GradingScale.model";
+import { Degree } from "./Degree.model";
+
+const School = sequelize.define(
+  "School",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    address: {
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    contactEmail: {
+      type: DataType.STRING,
+      allowNull: false,
+      validate: {
+        isEmail: true,
+      },
+    },
+    gradeScaleId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    isActive: {
+      type: DataType.BOOLEAN,
+      defaultValue: true,
+    },
+  },
+  {
+    tableName: "School",
+    timestamps: true,
+  }
+);
+
+export { School };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { Assignment } from "./Assignment.model";
+import { User } from "./User.model";
+
+const StudentAssignment = sequelize.define(
+  "StudentAssignment",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    studentId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    assignmentId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    hasSubmitted: {
+      type: DataType.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    submittedAt: {
+      type: DataType.DATE,
+      allowNull: true,
+    },
+    submissionFileUrl: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    submissionText: {
+      // if there is anything to tell while submitting the assignment
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    editRequested: {
+      type: DataType.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    editApproved: {
+      type: DataType.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    editedAt: {
+      type: DataType.DATE,
+      allowNull: true,
+    },
+  },
+  { tableName: "StudentAssignment", timestamps: true }
+);
+
+export { StudentAssignment };
+
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { ClassSchedule } from "./ClassSchedule.model";
+import { ExamSchedule } from "./ExamSchedule.model";
+import { Assignment } from "./Assignment.model";
+
+const Subject = sequelize.define(
+  "Subject",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    code: {
+      type: DataType.STRING,
+      allowNull: true,
+      unique: true,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+  },
+  { tableName: "Subject", timestamps: true }
+);
+
+export { Subject };
+
+import crypto from "crypto";
+import { DataType } from "sequelize-typescript";
+import { sequelize } from "../db/db";
+import { School } from "./School.model";
+import { Assignment } from "./Assignment.model";
+import { ClassSchedule } from "./ClassSchedule.model";
+import { Class } from "./Class.model";
+import { Permission } from "./Permission.model";
+import { Attendance } from "./Attendance.model";
+import { Invite } from "./Invite.model";
+import { Complaint } from "./Complaint.model";
+import { Role } from "./Role.model";
+import { Education } from "./Education.model";
+import { ExamSchedule } from "./ExamSchedule.model";
+import { Experience } from "./Experience.model";
+import { RefreshToken } from "./RefreshToken.model";
+import { NoticeBoard } from "./NoticeBoard.model";
+import { Department } from "./Department.model";
+import { Result } from "./Result.model";
+
+const User = sequelize.define(
+  "User",
+  {
+    id: {
+      type: DataType.UUID,
+      defaultValue: DataType.UUIDV4,
+      primaryKey: true,
+    },
+    username: {
+      type: DataType.STRING,
+      allowNull: false,
+      defaultValue: () =>
+        `${Math.floor(Date.now() / 1000)}-${crypto.randomUUID()}`,
+      unique: true,
+    },
+    firstName: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    lastName: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    email: {
+      type: DataType.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: true,
+      },
+    },
+    password: {
+      type: DataType.STRING,
+      allowNull: false,
+    },
+    tempPassword: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    address: {
+      type: DataType.TEXT,
+      allowNull: true,
+    },
+    phone: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    specialization: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    rollNumber: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
+    parentEmail: {
+      type: DataType.STRING,
+      allowNull: true,
+      validate: {
+        isEmail: true,
+      },
+    },
+    profilePicture: {
+      type: DataType.STRING,
+      allowNull: true,
+      validate: {
+        len: {
+          args: [0, 500],
+          msg: "Profile picture URL must be up to 500 characters",
+        },
+      },
+    },
+    gender: {
+      type: DataType.ENUM("male", "female", "other"),
+      allowNull: true,
+    },
+    dateOfBirth: {
+      type: DataType.DATEONLY,
+      allowNull: true,
+    },
+    isActive: {
+      type: DataType.BOOLEAN,
+      defaultValue: true,
+    },
+    isTempPassword: {
+      type: DataType.BOOLEAN,
+      defaultValue: true,
+    },
+    system_defined: {
+      type: DataType.BOOLEAN,
+      defaultValue: true,
+    },
+    schoolId: {
+      type: DataType.UUID,
+      allowNull: true, // because first super_admin will register then school will be made
+    },
+    roleId: {
+      type: DataType.UUID,
+      allowNull: false,
+    },
+    departmentId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+  },
+  {
+    tableName: "User",
+    timestamps: true,
+  }
+);
+
+export { User };
+export type UserType = typeof User;
+
+----------------------------------------------------------------------------
+all relations: "
+import { Assignment } from "../Assignment.model";
+import { Attendance } from "../Attendance.model";
+import { Class } from "../Class.model";
+import { ClassSchedule } from "../ClassSchedule.model";
+import { ClassStudent } from "../ClassStudent.model";
+import { Complaint } from "../Complaint.model";
+import { Degree } from "../Degree.model";
+import { Department } from "../Department.model";
+import { Education } from "../Education.model";
+import { Event } from "../Event.model";
+import { ExamSchedule } from "../ExamSchedule.model";
+import { Experience } from "../Experience.model";
+import { GradingScale } from "../GradingScale.model";
+import { Invite } from "../Invite.model";
+import { Module } from "../Module.model";
+import { NoticeBoard } from "../NoticeBoard.model";
+import { Permission } from "../Permission.model";
+import { RefreshToken } from "../RefreshToken.model";
+import { Result } from "../Result.model";
+import { Role } from "../Role.model";
+import { School } from "../School.model";
+import { StudentAssignment } from "../StudentAssignment.model";
+import { Subject } from "../Subject.model";
+import { User } from "../User.model";
+
+export const setupAssociations = () => {
+  Assignment.belongsTo(Subject, { foreignKey: "subjectId", targetKey: "id" });
+  Assignment.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Assignment.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
+  Assignment.belongsTo(User, { foreignKey: "teacherId", targetKey: "id" });
+  Assignment.belongsToMany(User, {
+    through: "StudentAssignment",
+    foreignKey: "assignmentId",
+    otherKey: "studentId",
+  });
+
+  //*************************/
+
+  Attendance.belongsTo(ClassSchedule, {
+    foreignKey: "classScheduleId",
+    targetKey: "id",
+  });
+  Attendance.belongsTo(User, {
+    foreignKey: "userId",
+    targetKey: "id",
+    as: "students",
+  });
+  Attendance.belongsTo(User, {
+    foreignKey: "markedById",
+    targetKey: "id",
+    as: "markedBy",
+  });
+  User.hasMany(Attendance, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "attendances",
+  });
+  User.hasMany(Attendance, {
+    foreignKey: "markedById",
+    sourceKey: "id",
+    as: "markedAttendances",
+  });
+
+  //*********************** */
+
+  Class.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Class.belongsTo(Department, { foreignKey: "departmentId", targetKey: "id" });
+  Class.belongsToMany(User, {
+    through: "ClassStudent",
+    foreignKey: "classId",
+    otherKey: "studentId",
+  });
+  Class.hasMany(Event, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "events",
+  });
+  Class.hasMany(ClassSchedule, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "scheduledClasses",
+  });
+  Class.hasMany(ExamSchedule, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "examSchedules",
+  });
+  Class.hasMany(NoticeBoard, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "notices",
+  });
+  Class.hasMany(Assignment, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "assignments",
+  });
+
+  //************** */
+
+  ClassSchedule.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
+  ClassSchedule.belongsTo(User, { foreignKey: "teacherId", targetKey: "id" });
+  ClassSchedule.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  ClassSchedule.hasMany(Attendance, {
+    foreignKey: "classScheduleId",
+    sourceKey: "id",
+    as: "attendances",
+  });
+  ClassSchedule.belongsTo(Subject, {
+    foreignKey: "subjectId",
+    targetKey: "id",
+  });
+
+  //******************** */
+
+  ClassStudent.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
+  ClassStudent.belongsTo(User, { foreignKey: "studentId", targetKey: "id" });
+
+  //********** */
+
+  Complaint.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
+  Complaint.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  //******** */
+
+  Degree.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  //****** */
+
+  Department.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Department.hasMany(Class, { foreignKey: "departmentId", sourceKey: "id" });
+  Department.hasMany(User, { foreignKey: "departmentId", sourceKey: "id" });
+  Department.hasMany(Event, {
+    foreignKey: "departmentId",
+    sourceKey: "id",
+    as: "events",
+  });
+  //************* */
+
+  Education.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
+  //********* */
+
+  Event.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Event.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
+  Event.belongsTo(Department, {
+    foreignKey: "departmentId",
+    targetKey: "id",
+    as: "department",
+  });
+  //*************/
+
+  ExamSchedule.belongsTo(Class, {
+    foreignKey: "classId",
+    targetKey: "id",
+    onDelete: "RESTRICT",
+  });
+  ExamSchedule.belongsTo(School, {
+    foreignKey: "schoolId",
+    targetKey: "id",
+    onDelete: "RESTRICT",
+  });
+  ExamSchedule.belongsTo(User, {
+    foreignKey: "invigilatorId",
+    targetKey: "id",
+    as: "invigilator",
+    onDelete: "SET NULL",
+  });
+  ExamSchedule.belongsTo(Subject, { foreignKey: "subjectId", targetKey: "id" });
+  //*********/
+
+  Experience.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
+  Experience.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  //*********/
+
+  GradingScale.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  GradingScale.hasOne(School, {
+    foreignKey: "gradingScaleId",
+    sourceKey: "id",
+    as: "school",
+  });
+  //*********/
+
+  Invite.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Invite.belongsTo(User, {
+    foreignKey: "senderId",
+    targetKey: "id",
+    as: "sender",
+  });
+  Invite.belongsTo(User, {
+    foreignKey: "receiverId",
+    targetKey: "id",
+    as: "receiver",
+    onDelete: "SET NULL",
+  });
+  Invite.belongsTo(Role, { foreignKey: "roleId", targetKey: "id" });
+  User.hasMany(Invite, {
+    foreignKey: "senderId",
+    sourceKey: "id",
+    as: "sentInvites",
+  });
+  User.hasMany(Invite, {
+    foreignKey: "receiverId",
+    sourceKey: "id",
+    as: "receivedInvites",
+  });
+  //**********/
+
+  Module.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Module.hasMany(Permission, {
+    foreignKey: "moduleId",
+    sourceKey: "id",
+    as: "permissions",
+  });
+  //*******/
+
+  NoticeBoard.belongsTo(User, {
+    foreignKey: "userId",
+    targetKey: "id",
+    as: "user",
+  });
+  NoticeBoard.belongsTo(School, {
+    foreignKey: "schoolId",
+    targetKey: "id",
+    as: "school",
+  });
+  NoticeBoard.belongsTo(Class, {
+    foreignKey: "classId",
+    targetKey: "id",
+    as: "class",
+  });
+  NoticeBoard.belongsTo(Department, {
+    foreignKey: "departmentId",
+    targetKey: "id",
+    as: "department",
+  });
+  //*********/
+
+  Permission.belongsTo(Role, {
+    foreignKey: "roleId",
+    targetKey: "id",
+    as: "role",
+  });
+  Permission.belongsTo(User, {
+    foreignKey: "userId",
+    targetKey: "id",
+    as: "recipient",
+  });
+  Permission.belongsTo(User, {
+    foreignKey: "setterId",
+    targetKey: "id",
+    as: "setter",
+  });
+  Permission.belongsTo(Module, {
+    foreignKey: "moduleId",
+    targetKey: "id",
+    as: "module",
+  });
+  //********/
+
+  RefreshToken.belongsTo(User, {
+    foreignKey: "userId",
+    targetKey: "id",
+    as: "user",
+  });
+  //**********/
+
+  Result.belongsTo(User, {
+    foreignKey: "studentId",
+    targetKey: "id",
+    as: "student",
+  });
+  Result.belongsTo(User, {
+    foreignKey: "teacherId",
+    targetKey: "id",
+    as: "teacher",
+  });
+  Result.belongsTo(Class, {
+    foreignKey: "classId",
+    targetKey: "id",
+    as: "class",
+  });
+  Result.belongsTo(School, {
+    foreignKey: "schoolId",
+    targetKey: "id",
+    as: "school",
+  });
+  Result.belongsTo(Assignment, {
+    foreignKey: "assignmentId",
+    targetKey: "id",
+    as: "assignment",
+  });
+  Result.belongsTo(ExamSchedule, {
+    foreignKey: "examScheduleId",
+    targetKey: "id",
+    as: "examSchedule",
+  });
+  Result.belongsTo(Subject, {
+    foreignKey: "subjectId",
+    targetKey: "id",
+    as: "subject",
+  });
+  //************/
+
+  Role.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Role.hasMany(User, {
+    foreignKey: "roleId",
+    sourceKey: "id",
+    as: "users",
+  });
+  Role.hasMany(Permission, {
+    foreignKey: "roleId",
+    sourceKey: "id",
+    as: "permissions",
+  });
+  //*********/
+
+  School.belongsTo(GradingScale, {
+    foreignKey: "gradingScaleId",
+    targetKey: "id",
+    as: "gradingScale",
+  });
+  School.hasMany(Degree, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "degrees",
+  });
+  School.hasMany(Module, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "modules",
+  });
+  School.hasMany(Class, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+  });
+  School.hasMany(User, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "users",
+  });
+  School.hasMany(Invite, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "invites",
+  });
+  School.hasMany(Event, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "events",
+  });
+  School.hasMany(ClassSchedule, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "schoolSchedules",
+  });
+  School.hasMany(Complaint, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "complaints",
+  });
+  School.hasMany(Role, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "roles",
+  });
+  School.hasMany(ExamSchedule, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "examSchedules",
+  });
+  School.hasMany(Experience, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "experiences",
+  });
+  School.hasMany(NoticeBoard, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "notices",
+  });
+  School.hasMany(Assignment, {
+    foreignKey: "schoolId",
+    sourceKey: "id",
+    as: "assignments",
+  });
+  //************/
+
+  StudentAssignment.belongsTo(Assignment, {
+    foreignKey: "assignmentId",
+    targetKey: "id",
+  });
+  StudentAssignment.belongsTo(User, {
+    foreignKey: "studentId",
+    targetKey: "id",
+  });
+  //**************/
+
+  Subject.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Subject.hasMany(ClassSchedule, { foreignKey: "subjectId", sourceKey: "id" });
+  Subject.hasMany(ExamSchedule, { foreignKey: "subjectId", sourceKey: "id" });
+  Subject.hasMany(Assignment, { foreignKey: "subjectId", sourceKey: "id" });
+  Subject.hasMany(Result, {
+    foreignKey: "subjectId",
+    sourceKey: "id",
+    as: "results",
+  });
+  //**********/
+
+  User.belongsTo(School, {
+    foreignKey: "schoolId",
+    targetKey: "id",
+    onDelete: "CASCADE",
+  });
+  User.belongsTo(Role, { foreignKey: "roleId", targetKey: "id" });
+  User.belongsTo(Department, { foreignKey: "departmentId", targetKey: "id" });
+  User.belongsToMany(Assignment, {
+    through: "StudentAssignment",
+    foreignKey: "studentId",
+    otherKey: "assignmentId",
+    as: "assignments",
+  });
+  User.belongsToMany(Class, {
+    through: "ClassStudent",
+    foreignKey: "studentId",
+    otherKey: "classId",
+  });
+  User.hasMany(Assignment, {
+    foreignKey: "teacherId",
+    sourceKey: "id",
+    as: "assignmentsCreated",
+  });
+  User.hasMany(RefreshToken, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "refreshToken",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  }); // this ensure a user can login through multiple devices at same time
+  User.hasMany(Permission, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "permissionsReceived",
+  });
+  User.hasMany(Permission, {
+    foreignKey: "setterId",
+    sourceKey: "id",
+    as: "permissionsSet",
+  });
+  User.hasMany(Attendance, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "attendances",
+  });
+  User.hasMany(Attendance, {
+    foreignKey: "markedById",
+    sourceKey: "id",
+    as: "markedAttendances",
+  });
+  User.hasMany(Invite, {
+    foreignKey: "senderId",
+    sourceKey: "id",
+    as: "invitesSent",
+  });
+  User.hasMany(Invite, {
+    foreignKey: "receiverId",
+    sourceKey: "id",
+    as: "invitesReceived",
+  });
+  User.hasMany(ClassSchedule, {
+    foreignKey: "teacherId",
+    sourceKey: "id",
+    as: "teacherSchedules",
+  });
+  User.hasMany(Complaint, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "complaints",
+  });
+  User.hasMany(Education, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "degrees",
+  });
+  User.hasMany(Experience, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "experiences",
+  });
+  User.hasMany(ExamSchedule, {
+    foreignKey: "invigilatorId",
+    sourceKey: "id",
+    as: "invigilatedExams",
+  });
+  User.hasMany(NoticeBoard, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "notices",
+  });
+  User.hasMany(Result, {
+    foreignKey: "studentId",
+    sourceKey: "id",
+    as: "results",
+  });
+  User.hasMany(Result, {
+    foreignKey: "teacherId",
+    sourceKey: "id",
+    as: "resultsGiven",
+  });
+};

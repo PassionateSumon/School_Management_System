@@ -20,15 +20,9 @@ export interface PermissionUpdate {
   actions: string[];
 }
 
-export interface UpdateUserPermissionsPayload {
-  userId: string;
-  targetType: "school" | "class" | "event";
-  targetId: string;
-  permissions: PermissionUpdate[];
-}
-
-export interface UpdateRolePermissionsPayload {
-  roleId: string;
+export interface UpdateUserOrRolePermissionsPayload {
+  userId?: string;
+  roleId?: string;
   targetType: "school" | "class" | "event";
   targetId: string;
   permissions: PermissionUpdate[];

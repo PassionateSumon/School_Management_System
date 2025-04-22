@@ -32,7 +32,7 @@ const Permission = sequelize.define(
       allowNull: false,
     },
     targetType: {
-      type: DataType.ENUM("school", "class", "event", "notice"),
+      type: DataType.STRING, // ("school", "class", "event", "notice")
       allowNull: false,
     },
     targetId: {
@@ -41,7 +41,7 @@ const Permission = sequelize.define(
       allowNull: true,
     },
     action: {
-      type: DataType.ENUM("read", "write", "delete", "manage-all"),
+      type: DataType.STRING,
       allowNull: false,
     },
     scope: {

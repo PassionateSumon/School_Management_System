@@ -4,7 +4,7 @@ import {
   logoutController,
   resetPassword,
   signupController,
-} from "../../controllers/auth.controller";
+} from "../controllers/auth.controller";
 import Joi from "joi";
 
 const prefix = "/auth";

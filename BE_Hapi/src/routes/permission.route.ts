@@ -3,19 +3,15 @@ import {
   getSingleRolePermissions,
   getSingleUserPermissions,
   givePermission,
-  updateSingleRolePermissions,
-  updateSingleUserPermissions,
-} from "../../controllers/permission.controller";
+  updateSingleUserOrRolePermissions,
+} from "../controllers/permission.controller";
 import Joi from "joi";
-import { statusCodes } from "../../config/constants";
+import { statusCodes } from "../config/constants";;
 
 // Extend PluginSpecificConfiguration to include restrictToPermissionPlugin
 declare module "@hapi/hapi" {
   interface PluginSpecificConfiguration {
-    restrictToPermissionPlugin?: {
-      moduleName: string;
-      action: string;
-    };
+    restrictToPermissionPlugin?: boolean;
   }
 }
 
@@ -26,10 +22,7 @@ const permissionRoutes: ServerRoute[] = [
     handler: givePermission,
     options: {
       plugins: {
-        restrictToPermissionPlugin: {
-          moduleName: "permission",
-          action: "create",
-        },
+        restrictToPermissionPlugin: true,
       },
       validate: {
         payload: Joi.object({
@@ -76,10 +69,7 @@ const permissionRoutes: ServerRoute[] = [
     handler: getSingleUserPermissions,
     options: {
       plugins: {
-        restrictToPermissionPlugin: {
-          moduleName: "permission",
-          action: "read",
-        },
+        restrictToPermissionPlugin: true
       },
       tags: ["api", "permission"],
       description: "Retrieve permissions for a specific user.",
@@ -92,10 +82,7 @@ const permissionRoutes: ServerRoute[] = [
     handler: getSingleRolePermissions,
     options: {
       plugins: {
-        restrictToPermissionPlugin: {
-          moduleName: "permission",
-          action: "read",
-        },
+        restrictToPermissionPlugin:true,
       },
       tags: ["api", "permission"],
       description: "Retrieve permissions for a specific role.",
@@ -104,19 +91,19 @@ const permissionRoutes: ServerRoute[] = [
   },
   {
     method: "PUT",
-    path: "/update-single-user-permissions",
-    handler: updateSingleUserPermissions,
+    path: "/update-user-or-role-permissions",
+    handler: updateSingleUserOrRolePermissions,
     options: {
       plugins: {
-        restrictToPermissionPlugin: {
-          moduleName: "permission",
-          action: "write",
-        },
+        restrictToPermissionPlugin: true
       },
       validate: {
         payload: Joi.object({
-          userId: Joi.string().uuid().required(),
-          targetType: Joi.string().valid("school", "class", "event", "notice").optional(),
+          userId: Joi.string().uuid().optional(),
+          roleId: Joi.string().uuid().optional(),
+          targetType: Joi.string()
+            .valid("school", "class", "event", "notice")
+            .optional(),
           targetId: Joi.string().uuid().when("targetType", {
             is: Joi.exist(),
             then: Joi.required(),
@@ -134,70 +121,27 @@ const permissionRoutes: ServerRoute[] = [
             )
             .min(1)
             .required(),
-        }),
+        }).xor("userId", "roleId"),
         query: Joi.object({
           limit: Joi.number().integer().min(1).optional(),
           offset: Joi.number().integer().min(0).optional(),
         }),
         failAction: (request, h, err: any) => {
-          const errorMessage = err?.details?.[0]?.message || "Invalid request payload or query";
-          return h.response({ status: "Failed", error: errorMessage }).code(statusCodes.BAD_REQUEST).takeover();
+          const errorMessage =
+            err?.details?.[0]?.message || "Invalid request payload or query";
+          return h
+            .response({ status: "Failed", error: errorMessage })
+            .code(statusCodes.BAD_REQUEST)
+            .takeover();
         },
       },
       tags: ["api", "permission"],
-      description: "Update permissions for a specific user based on module and dynamic actions, with pagination support",
+      description:
+        "Update permissions for a user or role based on module and dynamic actions",
       auth: "jwt_access",
       payload: { parse: true, output: "data" },
     },
   },
-  // {
-  //   method: "PUT",
-  //   path: "/update-single-role-permissions",
-  //   handler: updateSingleRolePermissions,
-  //   options: {
-  //     plugins: {
-  //       restrictToPermissionPlugin: {
-  //         moduleName: "permission",
-  //         action: "write",
-  //       },
-  //     },
-  //     validate: {
-  //       payload: Joi.object({
-  //         roleId: Joi.string().uuid().required(),
-  //         targetType: Joi.string().valid("school", "class", "event", "notice").optional(),
-  //         targetId: Joi.string().uuid().when("targetType", {
-  //           is: Joi.exist(),
-  //           then: Joi.required(),
-  //           otherwise: Joi.forbidden(),
-  //         }),
-  //         permissions: Joi.array()
-  //           .items(
-  //             Joi.object({
-  //               moduleName: Joi.string().required(),
-  //               actions: Joi.array()
-  //                 .items(Joi.string().trim().min(1))
-  //                 .min(1)
-  //                 .required(),
-  //             })
-  //           )
-  //           .min(1)
-  //           .required(),
-  //       }),
-  //       query: Joi.object({
-  //         limit: Joi.number().integer().min(1).optional(),
-  //         offset: Joi.number().integer().min(0).optional(),
-  //       }),
-  //       failAction: (request, h, err: any) => {
-  //         const errorMessage = err?.details?.[0]?.message || "Invalid request payload or query";
-  //         return h.response({ status: "Failed", error: errorMessage }).code(400).takeover();
-  //       },
-  //     },
-  //     tags: ["api", "permission", "role"],
-  //     description: "Update permissions for a specific role based on module and dynamic actions, with pagination support",
-  //     auth: "jwt",
-  //     payload: { parse: true, output: "data" },
-  //   },
-  // },
 ];
 
 export default permissionRoutes;

@@ -7,9 +7,29 @@ import { registerSwagger } from "./plugins/swagger.plugin";
 import { ApiError } from "./utils/ApiError.util";
 import { User } from "./models/User.model";
 import { connectDB } from "./db/db";
-import authRoutes from "./routes/auth/auth.route";
-import permissionRoutes from "./routes/permission/permission.route";
+import authRoutes from "./routes/auth.route";
+import permissionRoutes from "./routes/permission.route";
+import { restrictToPermission } from "./plugins/restrictToPermission.plugin";
+import { RefreshToken } from "./models/RefreshToken.model";
+import { statusCodes } from "./config/constants";
+import inviteRoutes from "./routes/invite.route";
+import schoolRoutes from "./routes/school.route";
 dotenv.config();
+
+const requiredEnvVars = [
+  "JWT_ACCESS_SECRET",
+  "JWT_REFRESH_SECRET",
+  "COOKIE_SECRET",
+  "PORT",
+  "DEV_ORIGIN",
+];
+const missingEnvVars = requiredEnvVars.filter(
+  (varName) => !process.env[varName]
+);
+if (missingEnvVars.length > 0) {
+  console.error(`Missing environment variables: ${missingEnvVars.join(", ")}`);
+  process.exit(1);
+}
 
 const verifyToken = (token: string, secret: string) => {
   try {
@@ -55,26 +75,41 @@ const validateAccess = async (req: Hapi.Request, token: string) => {
 
 const validateRefresh = async (req: Hapi.Request) => {
   try {
-    const token = req.state.refreshToken; // Manually get refreshToken from cookie
-    console.log("59- token:- ", token)
+    const token = req.state.refreshToken;
     if (!token) {
-      throw new ApiError("No refreshToken found in Cookie!", 401);
+      throw new ApiError(
+        "No refreshToken found in Cookie!",
+        statusCodes.UNAUTHORIZED
+      );
     }
     const refreshSecret = process.env.JWT_REFRESH_SECRET;
     if (!refreshSecret) {
-      throw new ApiError("Refresh Secret is not found in environment!", 401);
+      throw new ApiError(
+        "Refresh Secret not found in environment!",
+        statusCodes.UNAUTHORIZED
+      );
     }
-    
-    const decoded = verifyToken(token, refreshSecret);
-    console.log("69- decoded:- ", decoded)
 
-    // *** This should be changed...
-    const user = await User.findOne({
-      where: { id: decoded?.userId },
-    });
-    console.log("75 - User - ",user)
-    if (user) {
-      throw new ApiError("Invalid refresh token!", 401);
+    const decoded = verifyToken(token, refreshSecret);
+
+    const refreshToken = (await RefreshToken.findOne({
+      where: { token, userId: decoded.userId },
+    })) as any;
+    if (!refreshToken || refreshToken.expiresAt < new Date()) {
+      throw new ApiError(
+        "Invalid or expired refresh token!",
+        statusCodes.UNAUTHORIZED
+      );
+    }
+
+    const user = (await User.findOne({
+      where: { id: decoded.userId },
+    })) as any;
+    if (!user || !user.isActive) {
+      throw new ApiError(
+        "User not found or inactive!",
+        statusCodes.UNAUTHORIZED
+      );
     }
 
     return {
@@ -85,7 +120,10 @@ const validateRefresh = async (req: Hapi.Request) => {
     if (error instanceof ApiError) {
       throw error;
     }
-    throw new ApiError("Internal server error at validate-refresh!", 500);
+    throw new ApiError(
+      "Internal server error at validate-refresh!",
+      statusCodes.SERVER_ISSUE
+    );
   }
 };
 
@@ -122,6 +160,8 @@ const init = async () => {
 
   await server.register(Jwt);
   await server.register(Cookie);
+  await server.register(restrictToPermission); // plugin register
+  await registerSwagger(server); // swagger register
 
   server.auth.strategy("jwt_access", "cookie", {
     cookie: {
@@ -154,12 +194,12 @@ const init = async () => {
   // default strategy
   server.auth.default("jwt_access");
 
-  // swagger register
-  await registerSwagger(server);
-
   // All routes
   server.route(authRoutes);
   server.route(permissionRoutes);
+  server.route(inviteRoutes);
+  server.route(schoolRoutes);
+
 
   server.events.on("response", function (req) {
     console.log(
@@ -169,8 +209,6 @@ const init = async () => {
     );
   });
 
-  // My approach is to connect db first and then if all are ok then start the server...
-  // So later I have to put db here...
   connectDB().then(async () => {
     await server.start();
     console.log(`Server is running on ${server.info.uri}`);

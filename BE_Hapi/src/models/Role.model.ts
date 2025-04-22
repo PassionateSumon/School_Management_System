@@ -19,6 +19,21 @@ const Role = sequelize.define(
       type: DataType.UUID,
       allowNull: false,
     },
+    priority: {
+      type: DataType.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      validate: {
+        min: {
+          args: [1],
+          msg: "Priority must be at least 1",
+        },
+        max: {
+          args: [1000],
+          msg: "Priority cannot exceed 1000",
+        },
+      },
+    },
   },
   { tableName: "Role", timestamps: true }
 );
