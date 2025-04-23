@@ -9,11 +9,12 @@ import { User } from "./models/User.model";
 import { connectDB } from "./db/db";
 import authRoutes from "./routes/auth.route";
 import permissionRoutes from "./routes/permission.route";
-import { restrictToPermission } from "./plugins/restrictToPermission.plugin";
 import { RefreshToken } from "./models/RefreshToken.model";
 import { statusCodes } from "./config/constants";
 import inviteRoutes from "./routes/invite.route";
 import schoolRoutes from "./routes/school.route";
+import classRoutes from "./routes/class.route";
+import classScheduleRoutes from "./routes/classSchedule.route";
 dotenv.config();
 
 const requiredEnvVars = [
@@ -160,7 +161,7 @@ const init = async () => {
 
   await server.register(Jwt);
   await server.register(Cookie);
-  await server.register(restrictToPermission); // plugin register
+  // await server.register(restrictToPermission); // plugin register
   await registerSwagger(server); // swagger register
 
   server.auth.strategy("jwt_access", "cookie", {
@@ -199,6 +200,8 @@ const init = async () => {
   server.route(permissionRoutes);
   server.route(inviteRoutes);
   server.route(schoolRoutes);
+  server.route(classRoutes);
+  server.route(classScheduleRoutes);
 
 
   server.events.on("response", function (req) {

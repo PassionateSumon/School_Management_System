@@ -35,6 +35,10 @@ const Experience = sequelize.define(
       type: DataType.DATEONLY,
       allowNull: true,
     },
+    certificate: {
+      type: DataType.STRING,
+      allowNull: true,
+    },
   },
   { tableName: "Experience", timestamps: true }
 );

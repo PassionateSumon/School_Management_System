@@ -2,8 +2,6 @@ import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { error, success } from "../utils/returnFunctions.util";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
-import { DataType } from "sequelize-typescript";
-import { School } from "../models/School.model";
 import { CryptoUtil } from "../utils/crypto.util";
 import { JWTUtil } from "../utils/jwtAll.util";
 import { Op } from "sequelize";
@@ -12,10 +10,13 @@ import { RefreshToken } from "../models/RefreshToken.model";
 import { statusCodes } from "../config/constants";
 import crypto from "crypto";
 import type { ResetOrForgotPasswordPayload } from "../interfaces/ResetOrForgotPasswordPayload";
+import { sequelize } from "../db/db";
+import { Invite } from "../models/Invite.model";
+import { Permission } from "../models/Permission.model";
 
 export const signupController = async (req: Request, h: ResponseToolkit) => {
   try {
-    const { firstName, email, password, role, schoolId }: any = req.payload;
+    const { firstName, email, password }: any = req.payload;
     if (!firstName || !email || !password) {
       return error(
         null,
@@ -36,18 +37,10 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
     // Check if this is the first user (super_admin)
     const userCount = await User.count();
     let finalRoleId;
-    let finalSchoolId = schoolId;
+    let finalSchoolId;
 
     if (userCount === 0) {
       // First user must be super_admin, ignore provided role/schoolId
-      if (role || schoolId) {
-        return error(
-          null,
-          "First user must be super_admin without role or schoolId!",
-          statusCodes.BAD_REQUEST
-        )(h);
-      }
-
       // Create or get super_admin role
       const superAdminRole = await Role.findOrCreate({
         where: { title: "super_admin" },
@@ -58,32 +51,6 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
       });
       finalRoleId = (superAdminRole as any)[0].id;
       finalSchoolId = null; // No school yet for super_admin
-    } else {
-      // Invited user: role and schoolId are required
-      if (!role || !schoolId) {
-        return error(
-          null,
-          "Role and School ID are required for invited users!",
-          statusCodes.BAD_REQUEST
-        )(h);
-      }
-
-      // Create or get role by name
-      const userRole = await Role.findOrCreate({
-        where: { title: role },
-        defaults: {
-          id: DataType.UUIDV4,
-          title: role,
-          schoolId,
-        },
-      });
-      finalRoleId = (userRole as any)[0].id;
-
-      // Verify school exists
-      const school = await School.findByPk(schoolId);
-      if (!school) {
-        return error(null, "School not found!", statusCodes.NOT_FOUND)(h);
-      }
     }
 
     const hashedPassword = CryptoUtil.hashPassword(password, "10");
@@ -91,7 +58,6 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
       firstName,
       email,
       password: userCount === 0 ? hashedPassword : "",
-      tempPassword: userCount === 0 ? "" : hashedPassword,
       roleId: finalRoleId,
       schoolId: finalSchoolId,
       isActive: true,
@@ -122,29 +88,34 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
 };
 
 export const loginController = async (req: Request, h: ResponseToolkit) => {
+  const transaction = await sequelize.transaction();
   try {
     const { usernameOrEmail, password } = req.payload as LoginPayload;
-    if (!usernameOrEmail || !password) {
-      return error(
-        null,
-        "Username or email and password are required!",
-        400
-      )(h);
-    }
+    // console.log("User: 94 -- ",usernameOrEmail, password)
 
-    const user: any = await User.findOne({
+    const user = (await User.findOne({
       where: {
         [Op.or]: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
       },
-    });
+      // include: [Role],
+      transaction,
+    })) as any;
+    
+    // console.log("User: 102 -- ",user)
 
     if (!user) {
-      return error(null, "User not found!", 404)(h);
+      await transaction.rollback();
+      return error(null, "User not found!", statusCodes.NOT_FOUND)(h);
     }
 
     // Check if user is active
     if (!user.isActive) {
-      return error(null, "User account is inactive!", 403)(h);
+      await transaction.rollback();
+      return error(
+        null,
+        "User account is inactive!",
+        statusCodes.BAD_REQUEST
+      )(h);
     }
 
     // Verify password based on user type
@@ -159,7 +130,12 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
     } else if (user.isTempPassword) {
       // Invited user, first login: use tempPassword
       if (!user.tempPassword) {
-        return error(null, "Temporary password not set!", 401)(h);
+        await transaction.rollback();
+        return error(
+          null,
+          "Temporary password not set!",
+          statusCodes.UNAUTHORIZED
+        )(h);
       }
       isPasswordMatch = CryptoUtil.verifyPassword(
         password,
@@ -167,8 +143,39 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         user.tempPassword
       );
       if (isPasswordMatch) {
-        // After successful first login, disable tempPassword
-        await user.update({ isTempPassword: false, tempPassword: null });
+        // Disable tempPassword and update invite status
+        await user.update(
+          { isTempPassword: false, tempPassword: null },
+          { transaction }
+        );
+
+        const invite = (await Invite.findOne({
+          where: { email: user.email, status: "pending" },
+          transaction,
+        })) as any;
+        if (invite) {
+          await invite.update({ status: "accepted" }, { transaction });
+        }
+        // Assign permissions based on role
+        const permissions = (await Permission.findAll({
+          where: { roleId: invite.roleId, scope: "all" },
+          transaction,
+        })) as any;
+        for (const perm of permissions) {
+          await Permission.create(
+            {
+              title: perm.title,
+              userId: user.id,
+              setterId: invite.senderId,
+              module: perm.module,
+              targetType: perm.targetType,
+              targetId: perm.targetId,
+              action: perm.action,
+              scope: "specific",
+            },
+            { transaction }
+          );
+        }
       }
     } else {
       isPasswordMatch = CryptoUtil.verifyPassword(
@@ -179,28 +186,36 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
     }
 
     if (!isPasswordMatch) {
-      return error(null, "Invalid password!", 401)(h);
+      await transaction.rollback();
+      return error(null, "Invalid password!", statusCodes.UNAUTHORIZED)(h);
     }
 
+    // Generate tokens
     const accessToken = JWTUtil.generateAccessToken(user.id, user.roleId);
     const refreshToken = JWTUtil.generateRefreshToken(user.id, user.roleId);
 
+    // Store refresh token
+    await RefreshToken.create(
+      {
+        token: refreshToken,
+        userId: user.id,
+      },
+      { transaction }
+    );
+
+    // Set cookies
     h.state("accessToken", accessToken, {
       path: "/",
-      ttl: process.env.JWT_ACCESS_EXPIRES as any,
+      ttl: Number(process.env.JWT_ACCESS_EXPIRES) * 1000,
       isHttpOnly: true,
     });
     h.state("refreshToken", refreshToken, {
       path: "/",
-      ttl: process.env.JWT_ACCESS_EXPIRES as any,
+      ttl: Number(process.env.JWT_REFRESH_EXPIRES) * 1000,
       isHttpOnly: true,
     });
 
-    await RefreshToken.create({
-      token: refreshToken,
-      userId: user.id,
-    });
-
+    await transaction.commit();
     return success(
       {
         accessToken,
@@ -213,18 +228,19 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
           roleId: user.roleId,
           schoolId: user.schoolId,
           isTempPassword: user.isTempPassword,
+          system_defned: user.system_defined,
+          isActive: user.isActive,
         },
       },
       "User logged in successfully",
-      200
+      statusCodes.SUCCESS
     )(h);
   } catch (err: any) {
-    //  console.error("Login Error:", err);
-    // console.error("Error stack:", err.stack);
+    await transaction.rollback();
     return error(
       null,
-      `${err?.message}` || "Internal server error!",
-      err?.code || 500
+      err.message || "Internal server error!",
+      statusCodes.SERVER_ISSUE
     )(h);
   }
 };

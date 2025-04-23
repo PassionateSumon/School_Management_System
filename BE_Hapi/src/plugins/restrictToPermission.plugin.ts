@@ -9,175 +9,175 @@ import { sequelize } from "../db/db";
 import { JWTUtil } from "../utils/jwtAll.util";
 import { Module } from "../models/Module.model";
 
-interface PermissionCheck {
-  request: Request;
-  userId: string;
-  targetId?: string;
-}
+// interface PermissionCheck {
+//   request: Request;
+//   userId: string;
+//   targetId?: string;
+// }
 
-export const restrictToPermission = {
-  name: "restrictToPermissionPlugin",
-  register: async (server: any) => {
-    server.ext("onPreAuth", async (request: Request, h: ResponseToolkit) => {
-      const { payload, state, route, headers } = request;
-      const accessToken = state.accessToken;
+// export const restrictToPermission = {
+//   name: "restrictToPermissionPlugin",
+//   register: async (server: any) => {
+//     server.ext("onPreAuth", async (request: Request, h: ResponseToolkit) => {
+//       const { payload, state, route, headers } = request;
+//       const accessToken = state.accessToken;
 
-      // Validate access token
-      const decoded = JWTUtil.verifyAccessToken(accessToken);
-      if (!decoded) {
-        return error(null, "Invalid access token", statusCodes.UNAUTHORIZED)(h);
-      }
+//       // Validate access token
+//       const decoded = JWTUtil.verifyAccessToken(accessToken);
+//       if (!decoded) {
+//         return error(null, "Invalid access token", statusCodes.UNAUTHORIZED)(h);
+//       }
 
-      // Validate user
-      const user = await User.findOne({ where: { id: decoded.id }, include: [{ model: Role }] }) as any;
-      if (!user || !user.isActive) {
-        return error(null, "User not found or inactive", statusCodes.NOT_FOUND)(h);
-      }
+//       // Validate user
+//       const user = await User.findOne({ where: { id: decoded.id }, include: [{ model: Role }] }) as any;
+//       if (!user || !user.isActive) {
+//         return error(null, "User not found or inactive", statusCodes.NOT_FOUND)(h);
+//       }
 
-      // Bypass for super_admin
-      if (user.role?.title.toLowerCase() === "super_admin") {
-        return h.continue;
-      }
+//       // Bypass for super_admin
+//       if (user.role?.title.toLowerCase() === "super_admin") {
+//         return h.continue;
+//       }
 
-      // Infer moduleName from payload or path
-      const pathSegments = route.path.split("/").filter(segment => segment);
-      let moduleName = pathSegments[1] ? pathSegments[1].toLowerCase() : null;
-      if ((payload as any)?.module) {
-        moduleName = (payload as any).module.toLowerCase();
-      }
-      if (!moduleName) {
-        return error(null, "Cannot infer module from route path or payload", statusCodes.BAD_REQUEST)(h);
-      }
+//       // Infer moduleName from payload or path
+//       const pathSegments = route.path.split("/").filter(segment => segment);
+//       let moduleName = pathSegments[1] ? pathSegments[1].toLowerCase() : null;
+//       if ((payload as any)?.module) {
+//         moduleName = (payload as any).module.toLowerCase();
+//       }
+//       if (!moduleName) {
+//         return error(null, "Cannot infer module from route path or payload", statusCodes.BAD_REQUEST)(h);
+//       }
 
-      // Resolve moduleId
-      const moduleRecord = await Module.findOne({
-        where: { name: moduleName, schoolId: user.schoolId },
-      }) as any;
-      if (!moduleRecord) {
-        return error(null, `Invalid module: ${moduleName}`, statusCodes.BAD_REQUEST)(h);
-      }
-      const moduleId = moduleRecord.id;
+//       // Resolve moduleId
+//       const moduleRecord = await Module.findOne({
+//         where: { name: moduleName, schoolId: user.schoolId },
+//       }) as any;
+//       if (!moduleRecord) {
+//         return error(null, `Invalid module: ${moduleName}`, statusCodes.BAD_REQUEST)(h);
+//       }
+//       const moduleId = moduleRecord.id;
 
-      // Infer action from payload, headers, or method
-      let action: string;
-      if ((payload as any)?.action) {
-        action = (payload as any).action.toLowerCase();
-      } else if (headers['x-action']) {
-        action = headers['x-action'].toLowerCase();
-      } else {
-        switch (route.method.toLowerCase()) {
-          case "post":
-            action = "create";
-            break;
-          case "put":
-            action = "update";
-            break;
-          case "get":
-            action = "read";
-            break;
-          case "delete":
-            action = "delete";
-            break;
-          default:
-            return error(null, `Unsupported HTTP method: ${route.method}`, statusCodes.BAD_REQUEST)(h);
-        }
-      }
+//       // Infer action from payload, headers, or method
+//       let action: string;
+//       if ((payload as any)?.action) {
+//         action = (payload as any).action.toLowerCase();
+//       } else if (headers['x-action']) {
+//         action = headers['x-action'].toLowerCase();
+//       } else {
+//         switch (route.method.toLowerCase()) {
+//           case "post":
+//             action = "create";
+//             break;
+//           case "put":
+//             action = "update";
+//             break;
+//           case "get":
+//             action = "read";
+//             break;
+//           case "delete":
+//             action = "delete";
+//             break;
+//           default:
+//             return error(null, `Unsupported HTTP method: ${route.method}`, statusCodes.BAD_REQUEST)(h);
+//         }
+//       }
 
-      // Validate action
-      const validActions = await Permission.findAll({
-        attributes: [[sequelize.fn("DISTINCT", sequelize.col("action")), "action"]],
-        raw: true,
-      }).then(results => results.map((r: any) => r.action));
-      if (!validActions.includes(action) && !validActions.includes("manage-all")) {
-        return error(null, `Invalid action: ${action}`, statusCodes.BAD_REQUEST)(h);
-      }
+//       // Validate action
+//       const validActions = await Permission.findAll({
+//         attributes: [[sequelize.fn("DISTINCT", sequelize.col("action")), "action"]],
+//         raw: true,
+//       }).then(results => results.map((r: any) => r.action));
+//       if (!validActions.includes(action) && !validActions.includes("manage-all")) {
+//         return error(null, `Invalid action: ${action}`, statusCodes.BAD_REQUEST)(h);
+//       }
 
-      // Infer targetType from payload or params
-      let targetType: string | null = null;
-      const params = request.params;
-      if ((payload as any)?.classId || params?.classId) {
-        targetType = "class";
-      } else if ((payload as any)?.schoolId || params?.schoolId) {
-        targetType = "school";
-      } else if ((payload as any)?.inviteId || params?.inviteId || params?.token) {
-        targetType = "invite";
-      } else if ((payload as any)?.assignmentId || params?.assignmentId) {
-        targetType = "assignment";
-      } else if ((payload as any)?.examScheduleId || params?.examScheduleId) {
-        targetType = "examschedule";
-      } else if ((payload as any)?.attendanceId || params?.attendanceId) {
-        targetType = "attendance";
-      } else if ((payload as any)?.resultId || params?.resultId) {
-        targetType = "result";
-      } else {
-        targetType = moduleName; // Fallback to moduleName
-      }
+//       // Infer targetType from payload or params
+//       let targetType: string | null = null;
+//       const params = request.params;
+//       if ((payload as any)?.classId || params?.classId) {
+//         targetType = "class";
+//       } else if ((payload as any)?.schoolId || params?.schoolId) {
+//         targetType = "school";
+//       } else if ((payload as any)?.inviteId || params?.inviteId || params?.token) {
+//         targetType = "invite";
+//       } else if ((payload as any)?.assignmentId || params?.assignmentId) {
+//         targetType = "assignment";
+//       } else if ((payload as any)?.examScheduleId || params?.examScheduleId) {
+//         targetType = "examschedule";
+//       } else if ((payload as any)?.attendanceId || params?.attendanceId) {
+//         targetType = "attendance";
+//       } else if ((payload as any)?.resultId || params?.resultId) {
+//         targetType = "result";
+//       } else {
+//         targetType = moduleName; // Fallback to moduleName
+//       }
 
-      // Validate targetType
-      const validTargetTypes = await Permission.findAll({
-        attributes: [[sequelize.fn("DISTINCT", sequelize.col("targetType")), "targetType"]],
-        raw: true,
-      }).then((results: any) => results.map((r: any) => r.targetType));
-      if (!validTargetTypes.includes(targetType)) {
-        return error(null, `Invalid targetType: ${targetType}`, statusCodes.BAD_REQUEST)(h);
-      }
+//       // Validate targetType
+//       const validTargetTypes = await Permission.findAll({
+//         attributes: [[sequelize.fn("DISTINCT", sequelize.col("targetType")), "targetType"]],
+//         raw: true,
+//       }).then((results: any) => results.map((r: any) => r.targetType));
+//       if (!validTargetTypes.includes(targetType)) {
+//         return error(null, `Invalid targetType: ${targetType}`, statusCodes.BAD_REQUEST)(h);
+//       }
 
-      // Infer targetId
-      let effectiveTargetId: string | undefined = undefined;
-      effectiveTargetId =
-        (payload as any)?.classId ||
-        params?.classId ||
-        (payload as any)?.schoolId ||
-        params?.schoolId ||
-        (payload as any)?.inviteId ||
-        params?.inviteId ||
-        params?.token ||
-        (payload as any)?.assignmentId ||
-        params?.assignmentId ||
-        (payload as any)?.examScheduleId ||
-        params?.examScheduleId ||
-        (payload as any)?.attendanceId ||
-        params?.attendanceId ||
-        (payload as any)?.resultId ||
-        params?.resultId;
-      if (!effectiveTargetId && targetType === "school") {
-        effectiveTargetId = user.schoolId;
-      }
-      if (!effectiveTargetId && targetType !== "school") {
-        return error(null, `Target ID required for targetType: ${targetType}`, statusCodes.BAD_REQUEST)(h);
-      }
+//       // Infer targetId
+//       let effectiveTargetId: string | undefined = undefined;
+//       effectiveTargetId =
+//         (payload as any)?.classId ||
+//         params?.classId ||
+//         (payload as any)?.schoolId ||
+//         params?.schoolId ||
+//         (payload as any)?.inviteId ||
+//         params?.inviteId ||
+//         params?.token ||
+//         (payload as any)?.assignmentId ||
+//         params?.assignmentId ||
+//         (payload as any)?.examScheduleId ||
+//         params?.examScheduleId ||
+//         (payload as any)?.attendanceId ||
+//         params?.attendanceId ||
+//         (payload as any)?.resultId ||
+//         params?.resultId;
+//       if (!effectiveTargetId && targetType === "school") {
+//         effectiveTargetId = user.schoolId;
+//       }
+//       if (!effectiveTargetId && targetType !== "school") {
+//         return error(null, `Target ID required for targetType: ${targetType}`, statusCodes.BAD_REQUEST)(h);
+//       }
 
-      // Check permissions
-      const conditions: any = [
-        {
-          [Op.or]: [
-            { userId: user.id, scope: "specific" },
-            user.roleId ? { roleId: user.roleId, scope: "all" } : {},
-          ],
-          moduleId,
-          action: { [Op.in]: [action, "manage-all"] },
-          targetType,
-        },
-      ];
+//       // Check permissions
+//       const conditions: any = [
+//         {
+//           [Op.or]: [
+//             { userId: user.id, scope: "specific" },
+//             user.roleId ? { roleId: user.roleId, scope: "all" } : {},
+//           ],
+//           moduleId,
+//           action: { [Op.in]: [action, "manage-all"] },
+//           targetType,
+//         },
+//       ];
 
-      if (effectiveTargetId) {
-        conditions.push({ targetId: { [Op.or]: [effectiveTargetId, null] } });
-      } else {
-        conditions.push({ targetId: null });
-      }
+//       if (effectiveTargetId) {
+//         conditions.push({ targetId: { [Op.or]: [effectiveTargetId, null] } });
+//       } else {
+//         conditions.push({ targetId: null });
+//       }
 
-      const permission = await Permission.findOne({
-        where: { [Op.and]: conditions },
-      });
+//       const permission = await Permission.findOne({
+//         where: { [Op.and]: conditions },
+//       });
 
-      if (!permission) {
-        return error(null, `No permission to perform ${action} on module ${moduleName}/${targetType}`, statusCodes.PERMISSION_DENIED)(h);
-      }
+//       if (!permission) {
+//         return error(null, `No permission to perform ${action} on module ${moduleName}/${targetType}`, statusCodes.PERMISSION_DENIED)(h);
+//       }
 
-      return h.continue;
-    });
-  },
-};
+//       return h.continue;
+//     });
+//   },
+// };
 
 // export const restrictToPermission = async ({
 //   request,

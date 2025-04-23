@@ -1,13 +1,11 @@
 import type { ServerRoute } from "@hapi/hapi";
 import {
-  acceptInvite,
   bulkCreateInvites,
   cancelInvite,
   createAndSendInvite,
   getInviteDetails,
   listInvites,
   listUserInvites,
-  rejectInvite,
   resendInvite,
   updateInvite,
 } from "../controllers/invite.controller";
@@ -43,34 +41,6 @@ const inviteRoutes: ServerRoute[] = [
       validate: {
         params: Joi.object({
           inviteId: Joi.string().uuid().required(),
-        }),
-      },
-    },
-  },
-  {
-    method: "POST",
-    path: "/invites/accept/{token}",
-    handler: acceptInvite,
-    options: {
-      auth: "jwt_access",
-      description: "Accept an invite",
-      validate: {
-        params: Joi.object({
-          token: Joi.string().uuid().required(),
-        }),
-      },
-    },
-  },
-  {
-    method: "POST",
-    path: "/invites/reject/{token}",
-    handler: rejectInvite,
-    options: {
-      auth: "jwt_access",
-      description: "Reject an invite",
-      validate: {
-        params: Joi.object({
-          token: Joi.string().uuid().required(),
         }),
       },
     },
@@ -152,16 +122,18 @@ const inviteRoutes: ServerRoute[] = [
       description: "Create and send multiple invites",
       tags: ["api", "invites"],
       validate: {
-        payload: Joi.array().items(
-          Joi.object({
-            email: Joi.string().email().required(),
-            role: Joi.string().required(),
-            classId: Joi.string().uuid().optional(),
-            firstName: Joi.string().required(),
-            lastName: Joi.string().optional(),
-            priority: Joi.number().integer().min(1).max(1000).optional(),
-          })
-        ).min(1),
+        payload: Joi.array()
+          .items(
+            Joi.object({
+              email: Joi.string().email().required(),
+              role: Joi.string().required(),
+              classId: Joi.string().uuid().optional(),
+              firstName: Joi.string().required(),
+              lastName: Joi.string().optional(),
+              priority: Joi.number().integer().min(1).max(1000).optional(),
+            })
+          )
+          .min(1),
       },
     },
   },

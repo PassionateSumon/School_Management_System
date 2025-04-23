@@ -259,30 +259,30 @@ export const updateClass = async (request: Request, h: ResponseToolkit) => {
     }
 
     // Check if user is super_admin or has update permission
-    if (user.role?.title.toLowerCase() !== "super_admin") {
-      if (classRecord.schoolId !== user.schoolId) {
-        await transaction.rollback();
-        return error(
-          null,
-          "Not authorized to update this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-      const hasPermission = await user.$hasPermission({
-        module: "class",
-        action: "update",
-        targetType: "class",
-        targetId: classId,
-      });
-      if (!hasPermission) {
-        await transaction.rollback();
-        return error(
-          null,
-          "Not authorized to update this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-    }
+    // if (user.role?.title.toLowerCase() !== "super_admin") {
+    //   if (classRecord.schoolId !== user.schoolId) {
+    //     await transaction.rollback();
+    //     return error(
+    //       null,
+    //       "Not authorized to update this class",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    //   const hasPermission = await user.$hasPermission({
+    //     module: "class",
+    //     action: "update",
+    //     targetType: "class",
+    //     targetId: classId,
+    //   });
+    //   if (!hasPermission) {
+    //     await transaction.rollback();
+    //     return error(
+    //       null,
+    //       "Not authorized to update this class",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    // }
 
     // Validate department
     if (department && !VALID_DEPARTMENTS.includes(department)) {
@@ -376,30 +376,30 @@ export const deleteClass = async (request: Request, h: ResponseToolkit) => {
     }
 
     // Check if user is super_admin or has delete permission
-    if (user.role?.title.toLowerCase() !== "super_admin") {
-      if (classRecord.schoolId !== user.schoolId) {
-        await transaction.rollback();
-        return error(
-          null,
-          "Not authorized to delete this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-      const hasPermission = await user.$hasPermission({
-        module: "class",
-        action: "delete",
-        targetType: "class",
-        targetId: classId,
-      });
-      if (!hasPermission) {
-        await transaction.rollback();
-        return error(
-          null,
-          "Not authorized to delete this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-    }
+    // if (user.role?.title.toLowerCase() !== "super_admin") {
+    //   if (classRecord.schoolId !== user.schoolId) {
+    //     await transaction.rollback();
+    //     return error(
+    //       null,
+    //       "Not authorized to delete this class",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    //   const hasPermission = await user.$hasPermission({
+    //     module: "class",
+    //     action: "delete",
+    //     targetType: "class",
+    //     targetId: classId,
+    //   });
+    //   if (!hasPermission) {
+    //     await transaction.rollback();
+    //     return error(
+    //       null,
+    //       "Not authorized to delete this class",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    // }
 
     await classRecord.destroy({ transaction });
 

@@ -49,14 +49,10 @@ const authRoutes: ServerRoute[] = [
     handler: loginController,
     options: {
       validate: {
-        // payload: Joi.object({
-        //   email: Joi.string().email().required().messages({
-        //     "any.required": "email is required!",
-        //   }),
-        //   password: Joi.string().required().messages({
-        //     "any.required": "password is required!",
-        //   }),
-        // }),
+        payload: Joi.object({
+          usernameOrEmail: Joi.string().min(3).max(100).required(),
+          password: Joi.string().min(6).max(100).required(),
+        }),
         failAction: (request, h, err: any) => {
           // console.log(err);
           const errorMessage =
@@ -96,8 +92,8 @@ const authRoutes: ServerRoute[] = [
       auth: "jwt_access",
       payload: {
         parse: true,
-        output: "data"
-      }
+        output: "data",
+      },
     },
   },
 ];
