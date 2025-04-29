@@ -2,7 +2,6 @@ import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
 import { Class } from "../models/Class.model";
 import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
 import { School } from "../models/School.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
@@ -22,7 +21,7 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
   const transaction = await sequelize.transaction();
   try {
     const user = (await User.findByPk(userId, {
-      include: [Role],
+      // include: [Role],
       transaction,
     })) as any;
     if (!user || !user.schoolId) {
@@ -31,22 +30,22 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
     }
 
     // Check if user is super_admin or has create permission
-    if (user.role?.title.toLowerCase() !== "super_admin") {
-      const hasPermission = (await user.$hasPermission({
-        module: "class",
-        action: "create",
-        targetType: "school",
-        targetId: user.schoolId,
-      })) as any;
-      if (!hasPermission) {
-        await transaction.rollback();
-        return error(
-          null,
-          "Not authorized to create classes",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-    }
+    // if (user.role?.title.toLowerCase() !== "super_admin") {
+    //   const hasPermission = (await user.$hasPermission({
+    //     module: "class",
+    //     action: "create",
+    //     targetType: "school",
+    //     targetId: user.schoolId,
+    //   })) as any;
+    //   if (!hasPermission) {
+    //     await transaction.rollback();
+    //     return error(
+    //       null,
+    //       "Not authorized to create classes",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    // }
 
     const school = (await School.findByPk(user.schoolId, {
       transaction,
@@ -71,8 +70,7 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
     // Check for duplicate class name + department in school
     const existingClass = (await Class.findOne({
       where: {
-        name: { [Op.iLike]: name },
-        department: department ? { [Op.iLike]: department } : null,
+        name: { [Op.eq]: name },
         schoolId: user.schoolId,
       },
       transaction,
@@ -91,7 +89,6 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
     const newClass = (await Class.create(
       {
         name,
-        department,
         schoolId: user.schoolId,
       },
       { transaction }
@@ -102,7 +99,6 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
       {
         classId: newClass.id,
         name: newClass.name,
-        department: newClass.department,
         schoolId: newClass.schoolId,
       },
       "Class created successfully",
@@ -123,34 +119,33 @@ export const listClasses = async (request: Request, h: ResponseToolkit) => {
   const { userId } = request.auth.credentials as any;
 
   try {
-    const user = (await User.findByPk(userId, { include: [Role] })) as any;
+    const user = (await User.findByPk(userId)) as any;
     if (!user || !user.schoolId) {
       return error(null, "User or school not found", statusCodes.NOT_FOUND)(h);
     }
 
     // Check if user is super_admin or has read permission
-    if (user.role?.title.toLowerCase() !== "super_admin") {
-      const hasPermission = (await user.$hasPermission({
-        module: "class",
-        action: "read",
-        targetType: "school",
-        targetId: user.schoolId,
-      })) as any;
-      if (!hasPermission) {
-        return error(
-          null,
-          "Not authorized to view classes",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-    }
+    // if (user.role?.title.toLowerCase() !== "super_admin") {
+    //   const hasPermission = (await user.$hasPermission({
+    //     module: "class",
+    //     action: "read",
+    //     targetType: "school",
+    //     targetId: user.schoolId,
+    //   })) as any;
+    //   if (!hasPermission) {
+    //     return error(
+    //       null,
+    //       "Not authorized to view classes",
+    //       statusCodes.PERMISSION_DENIED
+    //     )(h);
+    //   }
+    // }
 
     const classes = await Class.findAll({
       where: { schoolId: user.schoolId },
-      attributes: ["id", "name", "department", "schoolId", "createdAt"],
+      attributes: ["id", "name", "schoolId", "createdAt"],
       order: [
         ["name", "ASC"],
-        ["department", "ASC"],
       ],
     });
 
@@ -172,9 +167,10 @@ export const listClasses = async (request: Request, h: ResponseToolkit) => {
 export const getClass = async (request: Request, h: ResponseToolkit) => {
   const { classId } = request.params;
   const { userId } = request.auth.credentials as any;
+  console.log(classId);
 
   try {
-    const user = (await User.findByPk(userId, { include: [Role] })) as any;
+    const user = (await User.findByPk(userId)) as any;
     if (!user || !user.schoolId) {
       return error(null, "User or school not found", statusCodes.NOT_FOUND)(h);
     }
@@ -183,7 +179,6 @@ export const getClass = async (request: Request, h: ResponseToolkit) => {
       attributes: [
         "id",
         "name",
-        "department",
         "schoolId",
         "createdAt",
         "updatedAt",
@@ -192,30 +187,6 @@ export const getClass = async (request: Request, h: ResponseToolkit) => {
 
     if (!classRecord) {
       return error(null, "Class not found", statusCodes.NOT_FOUND)(h);
-    }
-
-    // Check if user is super_admin or has read permission
-    if (user.role?.title.toLowerCase() !== "super_admin") {
-      if (classRecord.schoolId !== user.schoolId) {
-        return error(
-          null,
-          "Not authorized to view this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
-      const hasPermission = await user.$hasPermission({
-        module: "class",
-        action: "read",
-        targetType: "class",
-        targetId: classId,
-      });
-      if (!hasPermission) {
-        return error(
-          null,
-          "Not authorized to view this class",
-          statusCodes.PERMISSION_DENIED
-        )(h);
-      }
     }
 
     return success(
@@ -244,7 +215,6 @@ export const updateClass = async (request: Request, h: ResponseToolkit) => {
   const transaction = await sequelize.transaction();
   try {
     const user = (await User.findByPk(userId, {
-      include: [Role],
       transaction,
     })) as any;
     if (!user || !user.schoolId) {
@@ -257,32 +227,6 @@ export const updateClass = async (request: Request, h: ResponseToolkit) => {
       await transaction.rollback();
       return error(null, "Class not found", statusCodes.NOT_FOUND)(h);
     }
-
-    // Check if user is super_admin or has update permission
-    // if (user.role?.title.toLowerCase() !== "super_admin") {
-    //   if (classRecord.schoolId !== user.schoolId) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to update this class",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    //   const hasPermission = await user.$hasPermission({
-    //     module: "class",
-    //     action: "update",
-    //     targetType: "class",
-    //     targetId: classId,
-    //   });
-    //   if (!hasPermission) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to update this class",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    // }
 
     // Validate department
     if (department && !VALID_DEPARTMENTS.includes(department)) {
@@ -303,8 +247,8 @@ export const updateClass = async (request: Request, h: ResponseToolkit) => {
         department !== undefined ? department : classRecord.department;
       const existingClass = await Class.findOne({
         where: {
-          name: { [Op.iLike]: finalName },
-          department: finalDepartment ? { [Op.iLike]: finalDepartment } : null,
+          name: { [Op.eq]: finalName },
+          department: finalDepartment ? { [Op.eq]: finalDepartment } : null,
           schoolId: user.schoolId,
           id: { [Op.ne]: classId },
         },
@@ -361,7 +305,6 @@ export const deleteClass = async (request: Request, h: ResponseToolkit) => {
   const transaction = await sequelize.transaction();
   try {
     const user = (await User.findByPk(userId, {
-      include: [Role],
       transaction,
     })) as any;
     if (!user || !user.schoolId) {
@@ -374,32 +317,6 @@ export const deleteClass = async (request: Request, h: ResponseToolkit) => {
       await transaction.rollback();
       return error(null, "Class not found", statusCodes.NOT_FOUND)(h);
     }
-
-    // Check if user is super_admin or has delete permission
-    // if (user.role?.title.toLowerCase() !== "super_admin") {
-    //   if (classRecord.schoolId !== user.schoolId) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to delete this class",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    //   const hasPermission = await user.$hasPermission({
-    //     module: "class",
-    //     action: "delete",
-    //     targetType: "class",
-    //     targetId: classId,
-    //   });
-    //   if (!hasPermission) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to delete this class",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    // }
 
     await classRecord.destroy({ transaction });
 

@@ -42,29 +42,25 @@ export const createAndSendInvite = async (
   request: Request,
   h: ResponseToolkit
 ) => {
-  const { email, role, classId, firstName, lastName, priority } =
-    request.payload as CreateInvitePayload & { priority?: number };
-  const sender = request.auth.credentials as any;
-
-  // Validate inputs
-  if (!email || !role || !firstName) {
-    return error(
-      null,
-      "Email, role, and firstName are required",
-      statusCodes.BAD_REQUEST
-    )(h);
-  }
-  if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-    return error(null, "Invalid email format", statusCodes.BAD_REQUEST)(h);
-  }
+  const { email, role, className, firstName, lastName, priority } =
+    request.payload as CreateInvitePayload;
+  const { userId } = request.auth.credentials as any;
 
   // Start transaction
   const transaction = await sequelize.transaction();
   try {
+    const sender = (await User.findOne({
+      where: { id: userId },
+      transaction,
+    })) as any;
+    if (!sender || !sender.schoolId) {
+      await transaction.rollback();
+      return error(null, "Sender not found or sender schoolId not found!", statusCodes.NOT_FOUND)(h);
+    }
     // Find or create role
     let roleRecord = (await Role.findOne({
       where: {
-        title: { [Op.iLike]: role },
+        title: { [Op.eq]: role },
         schoolId: sender.schoolId,
       },
       transaction,
@@ -164,11 +160,11 @@ export const createAndSendInvite = async (
     )) as any;
 
     // Link to class if classId provided and role is "student"
-    if (classId && role.toLowerCase() === "student") {
+    if (className && role.toLowerCase() === "student") {
       const classRecord = await Class.findOne({
-        where: { id: classId, schoolId: sender.schoolId },
+        where: { name: className, schoolId: sender.schoolId },
         transaction,
-      });
+      }) as any;
       if (!classRecord) {
         await transaction.rollback();
         return error(
@@ -178,10 +174,10 @@ export const createAndSendInvite = async (
         )(h);
       }
       await ClassStudent.create(
-        { classId, studentId: user.id },
+        { classId: classRecord.id, studentId: user.id },
         { transaction }
       );
-    } else if (classId && role.toLowerCase() !== "student") {
+    } else if (className && role.toLowerCase() !== "student") {
       await transaction.rollback();
       return error(
         null,
@@ -320,7 +316,7 @@ export const listInvites = async (request: Request, h: ResponseToolkit) => {
     }
     if (role) {
       const roleRecord = (await Role.findOne({
-        where: { title: { [Op.iLike]: role }, schoolId: user.schoolId },
+        where: { title: { [Op.eq]: role }, schoolId: user.schoolId },
       })) as any;
       if (!roleRecord) {
         return error(null, "Role not found", statusCodes.NOT_FOUND)(h);
@@ -481,9 +477,9 @@ export const cancelInvite = async (request: Request, h: ResponseToolkit) => {
 
 export const updateInvite = async (request: Request, h: ResponseToolkit) => {
   const { inviteId } = request.params;
-  const { role, classId, priority } = request.payload as {
+  const { role, className, priority } = request.payload as {
     role?: string;
-    classId?: string;
+    className?: string;
     priority?: number;
   };
   const { userId } = request.auth.credentials as any;
@@ -527,7 +523,7 @@ export const updateInvite = async (request: Request, h: ResponseToolkit) => {
     if (role) {
       let roleRecord = (await Role.findOne({
         where: {
-          title: { [Op.iLike]: role },
+          title: { [Op.eq]: role },
           schoolId: user.schoolId,
         },
         transaction,
@@ -545,11 +541,11 @@ export const updateInvite = async (request: Request, h: ResponseToolkit) => {
       invite.roleId = roleRecord.id;
     }
 
-    if (classId && invite.role.title.toLowerCase() === "student") {
+    if (className && invite.role.title.toLowerCase() === "student") {
       const classRecord = await Class.findOne({
-        where: { id: classId, schoolId: user.schoolId },
+        where: { name: className, schoolId: user.schoolId },
         transaction,
-      });
+      }) as any;
       if (!classRecord) {
         await transaction.rollback();
         return error(
@@ -559,16 +555,16 @@ export const updateInvite = async (request: Request, h: ResponseToolkit) => {
         )(h);
       }
       const existingClassStudent = await ClassStudent.findOne({
-        where: { studentId: invite.receiver.id, classId },
+        where: { studentId: invite.receiver.id, classId: classRecord.id },
         transaction,
       });
       if (!existingClassStudent) {
         await ClassStudent.create(
-          { classId, studentId: invite.receiver.id },
+          { classId: classRecord.id, studentId: invite.receiver.id },
           { transaction }
         );
       }
-    } else if (classId && invite.role.title.toLowerCase() !== "student") {
+    } else if (className && invite.role.title.toLowerCase() !== "student") {
       await transaction.rollback();
       return error(
         null,
@@ -600,9 +596,7 @@ export const bulkCreateInvites = async (
   request: Request,
   h: ResponseToolkit
 ) => {
-  const invites = request.payload as (CreateInvitePayload & {
-    priority?: number;
-  })[];
+  const invites = request.payload as (CreateInvitePayload)[];
   const { userId } = request.auth.credentials as any;
 
   if (!Array.isArray(invites) || invites.length === 0) {
@@ -630,7 +624,7 @@ export const bulkCreateInvites = async (
     }
 
     for (const inviteData of invites) {
-      const { email, role, classId, firstName, lastName, priority } =
+      const { email, role, className, firstName, lastName, priority } =
         inviteData;
 
       if (!email || !role || !firstName) {
@@ -652,7 +646,7 @@ export const bulkCreateInvites = async (
 
       let roleRecord = (await Role.findOne({
         where: {
-          title: { [Op.iLike]: role },
+          title: { [Op.eq]: role },
           schoolId: user.schoolId,
         },
         transaction,
@@ -751,9 +745,9 @@ export const bulkCreateInvites = async (
         { transaction }
       )) as any;
 
-      if (classId && role.toLowerCase() === "student") {
+      if (className && role.toLowerCase() === "student") {
         const classRecord = (await Class.findOne({
-          where: { id: classId, schoolId: user.schoolId },
+          where: { name: className, schoolId: user.schoolId },
           transaction,
         })) as any;
         if (!classRecord) {
@@ -765,10 +759,10 @@ export const bulkCreateInvites = async (
           )(h);
         }
         await ClassStudent.create(
-          { classId, studentId: inviteUser.id },
+          { classId: classRecord.id, studentId: inviteUser.id },
           { transaction }
         );
-      } else if (classId && role.toLowerCase() !== "student") {
+      } else if (className && role.toLowerCase() !== "student") {
         await transaction.rollback();
         return error(
           null,

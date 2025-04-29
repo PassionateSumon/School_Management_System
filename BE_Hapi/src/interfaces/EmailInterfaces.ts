@@ -7,7 +7,8 @@ export interface EmailJob {
 export interface CreateInvitePayload {
   email: string;
   role: string;
-  classId?: string;
+  className?: string;
   firstName: string;
   lastName?: string;
+  priority?: number
 }

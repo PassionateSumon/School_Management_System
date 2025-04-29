@@ -24,6 +24,10 @@ const subjectRoutes: ServerRoute[] = [
           schoolId: Joi.string().uuid().required(),
         }),
       },
+      payload: {
+        parse: true,
+        output: "data",
+      }
     },
   },
   {

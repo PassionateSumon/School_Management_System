@@ -11,10 +11,6 @@ const Permission = sequelize.define(
       defaultValue: DataType.UUIDV4,
       primaryKey: true,
     },
-    title: {
-      type: DataType.STRING,
-      allowNull: false,
-    },
     userId: {
       type: DataType.UUID,
       allowNull: true,
@@ -32,8 +28,11 @@ const Permission = sequelize.define(
       allowNull: false,
     },
     targetType: {
-      type: DataType.STRING, // ("school", "class", "event", "notice")
+      type: DataType.STRING(100), // Dynamic, e.g., "school", "class-9", "class-10"
       allowNull: false,
+      validate: {
+        len: [1, 100],
+      },
     },
     targetId: {
       // ID of the resource (like classId, schoolId)
@@ -41,7 +40,7 @@ const Permission = sequelize.define(
       allowNull: true,
     },
     action: {
-      type: DataType.STRING,
+      type: DataType.ENUM("manage-all", "read", "write", "delete", "update"),
       allowNull: false,
     },
     scope: {
@@ -55,6 +54,7 @@ const Permission = sequelize.define(
     timestamps: true,
     indexes: [
       { fields: ["userId"] },
+      { fields: ["setterId"] },
       { fields: ["roleId"] },
       { fields: ["targetId"] },
       { fields: ["moduleId"] },

@@ -7,3 +7,13 @@ export interface GrantPermissionPayload {
   targetId: string;
   scope: "specific" | "all";
 }
+
+type actions = "read" | "write" | "delete" | "manage-all";
+export interface CreatePermissionPayload {
+  userId?: string;
+  roleId?: string;
+  moduleName: string;
+  action: actions[];
+  targetType: "school" | "class" ;
+  scope: "specific" | "all";
+}

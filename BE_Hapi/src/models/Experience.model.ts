@@ -15,11 +15,7 @@ const Experience = sequelize.define(
       type: DataType.UUID,
       allowNull: false,
     },
-    schoolId: {
-      type: DataType.UUID,
-      allowNull: false,
-    },
-    organizationName: {
+    company: {
       type: DataType.STRING,
       allowNull: false,
     },

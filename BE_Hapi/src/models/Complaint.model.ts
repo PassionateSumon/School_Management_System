@@ -27,6 +27,15 @@ const Complaint = sequelize.define(
       type: DataType.UUID,
       allowNull: false,
     },
+    classId: {
+      type: DataType.UUID,
+      allowNull: true,
+    },
+    status: {
+      type: DataType.ENUM("pending", "attened", "resolved"),
+      allowNull: false,
+      defaultValue: "pending",
+    },
   },
   { tableName: "Complaint", timestamps: true }
 );

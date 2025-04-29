@@ -20,7 +20,9 @@ import { sequelize } from "../db/db";
 import { Op } from "sequelize";
 import { DataType } from "sequelize-typescript";
 
-const targetTypes = ["school", "class", "event", "notice"];
+const targetTypes = ["school", "class"];
+
+// *** Create permission should be here ***
 
 export const givePermission = async (req: Request, h: ResponseToolkit) => {
   try {
@@ -51,7 +53,7 @@ export const givePermission = async (req: Request, h: ResponseToolkit) => {
     if (!targetTypes.includes(targetType)) {
       return error(
         null,
-        "Target type must be one of 'school', 'class', 'event', or 'notice'!",
+        "Target type must be one of 'school', 'class'",
         statusCodes.BAD_REQUEST
       )(h);
     }
@@ -66,8 +68,6 @@ export const givePermission = async (req: Request, h: ResponseToolkit) => {
       target = await School.findByPk(targetId);
     } else if (targetType === "class") {
       target = await Class.findByPk(targetId);
-    } else if (targetType === "event") {
-      target = await Event.findByPk(targetId);
     }
 
     if (!target) {
@@ -215,8 +215,6 @@ export const getSingleUserPermissions = async (
         target = await School.findByPk(targetId);
       } else if (targetType === "class") {
         target = await Class.findByPk(targetId);
-      } else if (targetType === "event") {
-        target = await Event.findByPk(targetId);
       }
       if (!target) {
         return error(

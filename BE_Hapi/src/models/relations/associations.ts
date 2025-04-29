@@ -95,7 +95,16 @@ export const setupAssociations = () => {
     sourceKey: "id",
     as: "assignments",
   });
-
+  Class.hasMany(Complaint, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "complaints",
+  });
+  Class.hasMany(Result, {
+    foreignKey: "classId",
+    sourceKey: "id",
+    as: "results",
+  });
   //************** */
 
   ClassSchedule.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
@@ -120,6 +129,7 @@ export const setupAssociations = () => {
 
   Complaint.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
   Complaint.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Complaint.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
   //******** */
 
   Degree.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
@@ -167,7 +177,6 @@ export const setupAssociations = () => {
   //*********/
 
   Experience.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
-  Experience.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
   //*********/
 
   GradingScale.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
@@ -409,7 +418,7 @@ export const setupAssociations = () => {
     targetKey: "id",
     onDelete: "CASCADE",
   });
-  User.belongsTo(Role, { foreignKey: "roleId", targetKey: "id" });
+  User.belongsTo(Role, { as: 'role', foreignKey: 'roleId', targetKey: 'id' })
   User.belongsTo(Department, { foreignKey: "departmentId", targetKey: "id" });
   User.belongsToMany(Assignment, {
     through: "StudentAssignment",

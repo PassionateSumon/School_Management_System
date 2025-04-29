@@ -33,10 +33,7 @@ const School = sequelize.define(
     },
     contactEmail: {
       type: DataType.STRING,
-      allowNull: false,
-      validate: {
-        isEmail: true,
-      },
+      allowNull: true,
     },
     gradeScaleId: {
       type: DataType.UUID,

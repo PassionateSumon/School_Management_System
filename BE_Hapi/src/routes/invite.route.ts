@@ -23,11 +23,15 @@ const inviteRoutes: ServerRoute[] = [
         payload: Joi.object({
           email: Joi.string().email().required(),
           role: Joi.string().required(),
-          classId: Joi.string().uuid().optional(),
           firstName: Joi.string().required(),
+          className: Joi.string().uuid().optional(),
           lastName: Joi.string().optional(),
           priority: Joi.number().integer().min(1).optional(),
         }),
+      },
+      payload: {
+        parse: true,
+        output: "data",
       },
     },
   },

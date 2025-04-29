@@ -8,6 +8,7 @@ import {
   updateClass,
   VALID_DEPARTMENTS,
 } from "../controllers/class.controller";
+import { JWTUtil } from "../utils/jwtAll.util";
 
 const classRoutes: ServerRoute[] = [
   {
@@ -16,6 +17,7 @@ const classRoutes: ServerRoute[] = [
     handler: createClass,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Create a new class",
       tags: ["api", "classes"],
       validate: {
@@ -27,6 +29,10 @@ const classRoutes: ServerRoute[] = [
             .allow(null),
         }),
       },
+      payload: {
+        parse: true,
+        output: "data",
+      },
     },
   },
   {
@@ -35,6 +41,7 @@ const classRoutes: ServerRoute[] = [
     handler: listClasses,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "List all classes in the school",
       tags: ["api", "classes"],
     },
@@ -45,6 +52,7 @@ const classRoutes: ServerRoute[] = [
     handler: getClass,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Get details of a specific class",
       tags: ["api", "classes"],
       validate: {
@@ -60,6 +68,7 @@ const classRoutes: ServerRoute[] = [
     handler: updateClass,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Update a class",
       tags: ["api", "classes"],
       validate: {
@@ -74,6 +83,10 @@ const classRoutes: ServerRoute[] = [
             .allow(null),
         }).min(1),
       },
+      payload: {
+        parse: true,
+        output: "data",
+      },
     },
   },
   {
@@ -82,6 +95,7 @@ const classRoutes: ServerRoute[] = [
     handler: deleteClass,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Delete a class",
       tags: ["api", "classes"],
       validate: {

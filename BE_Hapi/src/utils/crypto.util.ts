@@ -10,6 +10,7 @@ export class CryptoUtil {
       .digest("hex");
   }
   static verifyPassword(password: string, salt: string, hash: string): boolean {
+    console.log("Crypto - 13 --> ",this.hashPassword(password, salt))
     return this.hashPassword(password, salt) === hash;
   }
 

@@ -1,5 +1,4 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { sequelize } from "../db/db";
 import { Subject } from "../models/Subject.model";
 import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";

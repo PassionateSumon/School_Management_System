@@ -17,7 +17,7 @@ const Module = sequelize.define(
       unique: true,
       validate: {
         notEmpty: true,
-        len: [1, 100],
+        len: [1, 200],
       },
     },
     schoolId: {
@@ -25,7 +25,7 @@ const Module = sequelize.define(
       allowNull: false,
     },
   },
-  { tableName: "Module", timestamps: true }
+  { tableName: "Module", timestamps: true, indexes: [{ fields: ["name"] }] }
 );
 
 export { Module };

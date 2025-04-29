@@ -51,7 +51,8 @@ const authRoutes: ServerRoute[] = [
       validate: {
         payload: Joi.object({
           usernameOrEmail: Joi.string().min(3).max(100).required(),
-          password: Joi.string().min(6).max(100).required(),
+          password: Joi.string().min(6).max(100).optional(),
+          tempPassword: Joi.string().min(6).max(100).optional(),
         }),
         failAction: (request, h, err: any) => {
           // console.log(err);

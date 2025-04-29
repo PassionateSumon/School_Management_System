@@ -1,15 +1,14 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import Joi from "joi";
 import { sequelize } from "../db/db";
 import { School } from "../models/School.model";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
-import { Permission } from "../models/Permission.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
 
 //*** GradeScale is remaining ***//
+// Permission is remaining ***// 
 
 // Create School
 export const createSchool = async (request: Request, h: ResponseToolkit) => {
@@ -18,30 +17,23 @@ export const createSchool = async (request: Request, h: ResponseToolkit) => {
     address?: string;
   };
   const { userId } = request.auth.credentials as any;
+  // console.log(request.auth.credentials);
 
   const transaction = await sequelize.transaction();
   try {
     // Validate user and super_admin role
     const user = (await User.findByPk(userId, {
-      include: [Role],
+      // include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
+    console.log(user)
     if (!user) {
       await transaction.rollback();
       return error(null, "User not found", statusCodes.NOT_FOUND)(h);
     }
-    if (!user.role || user.role.title.toLowerCase() !== "super_admin") {
-      await transaction.rollback();
-      return error(
-        null,
-        "Only super admins can create schools",
-        statusCodes.PERMISSION_DENIED
-      )(h);
-    }
-
-    // Check for duplicate school name
+    
     const existingSchool = await School.findOne({
-      where: { name: { [Op.iLike]: name } },
+      where: { name: { [Op.eq]: name } },
       transaction,
     });
     if (existingSchool) {
@@ -61,20 +53,6 @@ export const createSchool = async (request: Request, h: ResponseToolkit) => {
 
     // Update super_admin's schoolId
     await user.update({ schoolId: school.id }, { transaction });
-
-    // Grant super_admin full permissions for the school
-    await Permission.create(
-      {
-        userId: user.id,
-        module: "school",
-        action: "manage-all",
-        targetType: "school",
-        targetId: school.id,
-        scope: "specific",
-        setterId: user.id,
-      },
-      { transaction }
-    );
 
     await transaction.commit();
     return success(

@@ -15,6 +15,14 @@ import inviteRoutes from "./routes/invite.route";
 import schoolRoutes from "./routes/school.route";
 import classRoutes from "./routes/class.route";
 import classScheduleRoutes from "./routes/classSchedule.route";
+import departmentRoutes from "./routes/departments.route";
+import educationRoutes from "./routes/education.route";
+import experienceRoutes from "./routes/experience.route";
+import subjectRoutes from "./routes/subject.route";
+import roleRoutes from "./routes/role.route";
+import classStudentRoutes from "./routes/classStudent.route";
+import complaintRoutes from "./routes/complaint.route";
+import assignmentRoutes from "./routes/assignment.route";
 dotenv.config();
 
 const requiredEnvVars = [
@@ -52,19 +60,19 @@ const validateAccess = async (req: Hapi.Request, token: string) => {
       throw new ApiError("Access Secret is not found in environment!", 401);
     }
 
-    const decoded = verifyToken(token, accessSecret);
+    const decoded = verifyToken(token, accessSecret) as any;
     // console.log("34 - decoded -- ", decoded);
 
-    const user = await User.findOne({
+    const user = (await User.findOne({
       where: { id: decoded?.userId },
-    });
+    })) as any;
     if (!user) {
       throw new ApiError("User not found!", 401);
     }
 
     return {
       isValid: true,
-      credentials: { userId: decoded?.userId },
+      credentials: { userId: decoded?.userId, roleId: decoded?.roleId },
     };
   } catch (error: any) {
     if (error instanceof ApiError) {
@@ -91,7 +99,7 @@ const validateRefresh = async (req: Hapi.Request) => {
       );
     }
 
-    const decoded = verifyToken(token, refreshSecret);
+    const decoded = verifyToken(token, refreshSecret) as any;
 
     const refreshToken = (await RefreshToken.findOne({
       where: { token, userId: decoded.userId },
@@ -115,7 +123,7 @@ const validateRefresh = async (req: Hapi.Request) => {
 
     return {
       isValid: true,
-      credentials: { userId: decoded.userId },
+      credentials: { userId: decoded?.userId, roleId: decoded?.roleId },
     };
   } catch (error) {
     if (error instanceof ApiError) {
@@ -161,7 +169,6 @@ const init = async () => {
 
   await server.register(Jwt);
   await server.register(Cookie);
-  // await server.register(restrictToPermission); // plugin register
   await registerSwagger(server); // swagger register
 
   server.auth.strategy("jwt_access", "cookie", {
@@ -169,7 +176,7 @@ const init = async () => {
       name: "accessToken",
       password:
         process.env.COOKIE_SECRET || "secret_must_be_at_least_32_chars_long",
-      isHttpOnly: false,
+      isHttpOnly: true,
       ttl: 15 * 60 * 1000,
       path: "/",
     },
@@ -202,7 +209,14 @@ const init = async () => {
   server.route(schoolRoutes);
   server.route(classRoutes);
   server.route(classScheduleRoutes);
-
+  server.route(classStudentRoutes);
+  server.route(departmentRoutes);
+  server.route(educationRoutes);
+  server.route(experienceRoutes);
+  server.route(subjectRoutes);
+  server.route(roleRoutes);
+  server.route(complaintRoutes);
+  server.route(assignmentRoutes);
 
   server.events.on("response", function (req) {
     console.log(

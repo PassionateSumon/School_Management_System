@@ -30,7 +30,7 @@ const Class = sequelize.define(
       allowNull: true,
     },
   },
-  { tableName: "Class", timestamps: true }
+  { tableName: "Class", timestamps: true, indexes: [{ fields: ["name"] }] }
 );
 
 export { Class };

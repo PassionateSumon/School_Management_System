@@ -13,6 +13,8 @@ import type { ResetOrForgotPasswordPayload } from "../interfaces/ResetOrForgotPa
 import { sequelize } from "../db/db";
 import { Invite } from "../models/Invite.model";
 import { Permission } from "../models/Permission.model";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const signupController = async (req: Request, h: ResponseToolkit) => {
   try {
@@ -100,22 +102,12 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
       // include: [Role],
       transaction,
     })) as any;
-    
+
     // console.log("User: 102 -- ",user)
 
     if (!user) {
       await transaction.rollback();
       return error(null, "User not found!", statusCodes.NOT_FOUND)(h);
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      await transaction.rollback();
-      return error(
-        null,
-        "User account is inactive!",
-        statusCodes.BAD_REQUEST
-      )(h);
     }
 
     // Verify password based on user type
@@ -128,6 +120,8 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         user.password
       );
     } else if (user.isTempPassword) {
+      console.log("here 123", user.isTempPassword);
+      console.log("here 124", user.tempPassword);
       // Invited user, first login: use tempPassword
       if (!user.tempPassword) {
         await transaction.rollback();
@@ -145,7 +139,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
       if (isPasswordMatch) {
         // Disable tempPassword and update invite status
         await user.update(
-          { isTempPassword: false, tempPassword: null },
+          { isTempPassword: false, tempPassword: null, isActive: true },
           { transaction }
         );
 
@@ -205,13 +199,16 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
 
     // Set cookies
     h.state("accessToken", accessToken, {
+      ttl: 1 * 24 * 60 * 60 * 1000, // 1 day
       path: "/",
-      ttl: Number(process.env.JWT_ACCESS_EXPIRES) * 1000,
+      // isSecure: process.env.NODE_ENV === "production",
       isHttpOnly: true,
     });
+
     h.state("refreshToken", refreshToken, {
+      ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
-      ttl: Number(process.env.JWT_REFRESH_EXPIRES) * 1000,
+      // isSecure: process.env.NODE_ENV === "production",
       isHttpOnly: true,
     });
 

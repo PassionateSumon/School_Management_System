@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import type { Request, ResponseToolkit } from "@hapi/hapi";
+import { Role } from "../models/Role.model";
 dotenv.config();
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
@@ -38,5 +40,17 @@ export class JWTUtil {
   };
   static verifyAccessToken = (token: string) => {
     return (jwt as any).verify(token, ACCESS_SECRET) as { id: string };
+  };
+
+  static verifyRole = (requiredRole: any) => {
+    return async (request: Request, h: ResponseToolkit) => {
+      const { roleId } = request.auth.credentials as any;
+      const roleName = await Role.findOne({ where: { id: roleId } }) as any;
+      if (!roleName) throw new Error('Role not found');
+        // console.log("Role Name:", roleName.title);
+        // console.log("Role:", role);
+      if (roleName.title !== requiredRole) throw new Error('Forbidden');
+      return h.continue;
+    };
   };
 }
