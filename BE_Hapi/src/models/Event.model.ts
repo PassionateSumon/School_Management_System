@@ -23,6 +23,10 @@ const Event = sequelize.define(
       type: DataType.DATEONLY,
       allowNull: false,
     },
+    link: {
+      type: DataType.STRING(500),
+      allowNull: false,
+    },
     startTime: {
       type: DataType.TIME,
       allowNull: false,

@@ -120,8 +120,8 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         user.password
       );
     } else if (user.isTempPassword) {
-      console.log("here 123", user.isTempPassword);
-      console.log("here 124", user.tempPassword);
+      // console.log("here 123", user.isTempPassword);
+      // console.log("here 124", user.tempPassword);
       // Invited user, first login: use tempPassword
       if (!user.tempPassword) {
         await transaction.rollback();

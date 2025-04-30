@@ -7,22 +7,9 @@ import { registerSwagger } from "./plugins/swagger.plugin";
 import { ApiError } from "./utils/ApiError.util";
 import { User } from "./models/User.model";
 import { connectDB } from "./db/db";
-import authRoutes from "./routes/auth.route";
-import permissionRoutes from "./routes/permission.route";
 import { RefreshToken } from "./models/RefreshToken.model";
 import { statusCodes } from "./config/constants";
-import inviteRoutes from "./routes/invite.route";
-import schoolRoutes from "./routes/school.route";
-import classRoutes from "./routes/class.route";
-import classScheduleRoutes from "./routes/classSchedule.route";
-import departmentRoutes from "./routes/departments.route";
-import educationRoutes from "./routes/education.route";
-import experienceRoutes from "./routes/experience.route";
-import subjectRoutes from "./routes/subject.route";
-import roleRoutes from "./routes/role.route";
-import classStudentRoutes from "./routes/classStudent.route";
-import complaintRoutes from "./routes/complaint.route";
-import assignmentRoutes from "./routes/assignment.route";
+import { indexRoutes } from "./routes/index.route";
 dotenv.config();
 
 const requiredEnvVars = [
@@ -203,20 +190,7 @@ const init = async () => {
   server.auth.default("jwt_access");
 
   // All routes
-  server.route(authRoutes);
-  server.route(permissionRoutes);
-  server.route(inviteRoutes);
-  server.route(schoolRoutes);
-  server.route(classRoutes);
-  server.route(classScheduleRoutes);
-  server.route(classStudentRoutes);
-  server.route(departmentRoutes);
-  server.route(educationRoutes);
-  server.route(experienceRoutes);
-  server.route(subjectRoutes);
-  server.route(roleRoutes);
-  server.route(complaintRoutes);
-  server.route(assignmentRoutes);
+  server.route(indexRoutes);
 
   server.events.on("response", function (req) {
     console.log(
