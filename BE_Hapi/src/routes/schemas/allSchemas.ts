@@ -36,3 +36,12 @@ export const scopeSchema = Joi.string()
   .messages({
     "any.only": '{{#label}} must be one of "school", "class", or "department"',
   });
+
+export const typeSchema = Joi.string()
+  .valid("Midterm", "Final", "Quiz", "Practical", "Other")
+  .optional()
+  .default("Other")
+  .messages({
+    "any.only":
+      '{{#label}} must be one of "Midterm", "Final", "Quiz", "Practical", "Other"',
+  });

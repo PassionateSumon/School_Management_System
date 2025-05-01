@@ -16,6 +16,8 @@ import assignmentRoutes from "./assignment.route";
 import degreeRoutes from "./degree.route";
 import noticeBoardRoutes from "./noticeBoard.route";
 import eventRoutes from "./event.route";
+import examRoutes from "./exam.route";
+import resultRoutes from "./result.route";
 
 const indexRoutes: ServerRoute[] = [
   ...authRoutes,
@@ -35,6 +37,8 @@ const indexRoutes: ServerRoute[] = [
   ...degreeRoutes,
   ...noticeBoardRoutes,
   ...eventRoutes,
+  ...examRoutes,
+  ...resultRoutes,
 ];
 
 export { indexRoutes };
