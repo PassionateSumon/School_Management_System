@@ -5,10 +5,8 @@ import Cookie from "@hapi/cookie";
 import jwt from "jsonwebtoken";
 import { registerSwagger } from "./plugins/swagger.plugin";
 import { ApiError } from "./utils/ApiError.util";
-import { User } from "./models/User.model";
-import { connectDB } from "./db/db";
-import { RefreshToken } from "./models/RefreshToken.model";
 import { statusCodes } from "./config/constants";
+import { db, connectDB } from "./db/db";
 import { indexRoutes } from "./routes/index.route";
 dotenv.config();
 
@@ -26,6 +24,9 @@ if (missingEnvVars.length > 0) {
   console.error(`Missing environment variables: ${missingEnvVars.join(", ")}`);
   process.exit(1);
 }
+
+let User = db.user;
+let RefreshToken = db.refreshToken;
 
 const verifyToken = (token: string, secret: string) => {
   try {
@@ -200,7 +201,7 @@ const init = async () => {
     );
   });
 
-  connectDB().then(async () => {
+  connectDB().then(async () => { 
     await server.start();
     console.log(`Server is running on ${server.info.uri}`);
     console.log(

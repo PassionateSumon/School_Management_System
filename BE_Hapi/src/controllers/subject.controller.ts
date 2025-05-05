@@ -1,9 +1,10 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { Subject } from "../models/Subject.model";
-import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
+import { db } from "../db/db";
+
+const { subject: Subject, user: User } = db;
 
 // Create Subject
 export const createSubject = async (request: Request, h: ResponseToolkit) => {

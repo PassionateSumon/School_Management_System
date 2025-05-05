@@ -1,14 +1,6 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { error, success } from "../utils/returnFunctions.util";
 import type { GrantPermissionPayload } from "../interfaces/GrantPermissionPayload";
-import { Module } from "../models/Module.model";
-import { School } from "../models/School.model";
-import { Class } from "../models/Class.model";
-import { Event } from "../models/Event.model";
-import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
-import { JWTUtil } from "../utils/jwtAll.util";
-import { Permission } from "../models/Permission.model";
 import { statusCodes } from "../config/constants";
 import type {
   PaginationQuery,
@@ -19,6 +11,18 @@ import type {
 import { sequelize } from "../db/db";
 import { Op } from "sequelize";
 import { DataType } from "sequelize-typescript";
+import { JWTUtil } from "../utils/jwtAll.util";
+import { db } from "../db/db";
+
+const {
+  class: Class,
+  event: Event,
+  module: Module,
+  permission: Permission,
+  role: Role,
+  school: School,
+  user: User,
+} = db;
 
 const targetTypes = ["school", "class"];
 
@@ -183,12 +187,12 @@ export const getSingleUserPermissions = async (
     }
 
     const accessToken = req.state.accessToken;
-    console.log(accessToken);
+    // console.log(accessToken);
     const decoded: any = JWTUtil.verifyAccessToken(accessToken);
     if (!decoded) {
       return error(null, "Invalid access token!", statusCodes.UNAUTHORIZED)(h);
     }
-    console.log("decoded: ", decoded);
+    // console.log("decoded: ", decoded);
 
     const requester: any = await User.findByPk(decoded.userId);
     if (!requester || !requester.isActive) {
@@ -201,6 +205,7 @@ export const getSingleUserPermissions = async (
 
     // Verify target user
     const user: any = await User.findByPk(userId);
+    // console.log(user)
     if (!user || !user.isActive) {
       return error(
         null,
@@ -240,12 +245,11 @@ export const getSingleUserPermissions = async (
           attributes: ["name"],
         },
       ],
-      attributes: ["id", "title", "action", "targetType", "targetId", "scope"],
+      attributes: ["id", "action", "targetType", "targetId", "scope"],
     });
 
     const formattedPermissions = permissions.map((perm: any) => ({
       id: perm.id,
-      title: perm.title,
       moduleName: perm.module.name,
       action: perm.action,
       targetType: perm.targetType,

@@ -1,13 +1,17 @@
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { School } from "../models/School.model";
-import { Class } from "../models/Class.model";
-import { Department } from "../models/Department.model";
-import { Event } from "../models/Event.model";
-import { User } from "../models/User.model";
-import { ClassStudent } from "../models/ClassStudent.model";
 import { Op } from "sequelize";
+import { db } from "db/db";
+
+const {
+  class: Class,
+  ClassStudent: ClassStudent,
+  department: Department,
+  event: Event,
+  school: School,
+  user: User,
+} = db;
 
 // Create Event
 export const createEvent = async (req: Request, h: ResponseToolkit) => {
@@ -124,7 +128,7 @@ export const listEvents = async (req: Request, h: ResponseToolkit) => {
 
     if (classId) {
       const classExists = await Class.findByPk(classId);
-    //   console.log(classExists, "classExists");
+      //   console.log(classExists, "classExists");
       if (!classExists) {
         return error(
           { error: "Invalid class" },
@@ -137,7 +141,7 @@ export const listEvents = async (req: Request, h: ResponseToolkit) => {
 
     if (departmentId) {
       const departmentExists = await Department.findByPk(departmentId);
-    //   console.log(departmentExists, "departmentExists");
+      //   console.log(departmentExists, "departmentExists");
       if (!departmentExists) {
         return error(
           { error: "Invalid department" },
@@ -149,7 +153,7 @@ export const listEvents = async (req: Request, h: ResponseToolkit) => {
     }
 
     if (scope) {
-        console.log(scope, "scope");
+      console.log(scope, "scope");
       where.scope = scope;
     }
 
@@ -183,15 +187,15 @@ export const listEvents = async (req: Request, h: ResponseToolkit) => {
     // console.log(where, "where");
     const events = await Event.findAll({
       where,
-    //   include: [
-    //     { model: School, attributes: ["name"], },
-    //     { model: Class, attributes: ["name"], required: false },
-    //     {
-    //       model: Department,
-    //       attributes: ["name"],
-    //       required: false,
-    //     },
-    //   ],
+      include: [
+        { model: School, attributes: ["name"] },
+        { model: Class, attributes: ["name"], required: false },
+        {
+          model: Department,
+          attributes: ["name"],
+          required: false,
+        },
+      ],
     });
 
     return success(
@@ -230,16 +234,16 @@ export const getEventDetails = async (req: Request, h: ResponseToolkit) => {
     // Fetch event
     const event = (await Event.findOne({
       where: { id: eventId, schoolId: user.schoolId },
-    //   include: [
-    //     { model: School, attributes: ["name"], as: "School" },
-    //     { model: Class, attributes: ["name"], as: "Class", required: false },
-    //     {
-    //       model: Department,
-    //       attributes: ["name"],
-    //       as: "department",
-    //       required: false,
-    //     },
-    //   ],
+      include: [
+        { model: School, attributes: ["name"], as: "School" },
+        { model: Class, attributes: ["name"], as: "Class", required: false },
+        {
+          model: Department,
+          attributes: ["name"],
+          as: "department",
+          required: false,
+        },
+      ],
     })) as any;
 
     if (!event) {

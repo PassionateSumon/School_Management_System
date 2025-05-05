@@ -1,8 +1,9 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { success, error } from "../utils/returnFunctions.util";
-import { School } from "../models/School.model";
 import { statusCodes } from "../config/constants";
-import { Degree } from "../models/Degree.model";
+import { db } from "db/db";
+
+const { degree: Degree, school: School } = db;
 
 // Create Degree
 export const createDegree = async (req: Request, h: ResponseToolkit) => {

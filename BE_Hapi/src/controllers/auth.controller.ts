@@ -1,24 +1,29 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { error, success } from "../utils/returnFunctions.util";
-import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
 import { CryptoUtil } from "../utils/crypto.util";
 import { JWTUtil } from "../utils/jwtAll.util";
 import { Op } from "sequelize";
-import type { LoginPayload } from "../interfaces/LoginPayload";
-import { RefreshToken } from "../models/RefreshToken.model";
 import { statusCodes } from "../config/constants";
 import crypto from "crypto";
 import type { ResetOrForgotPasswordPayload } from "../interfaces/ResetOrForgotPasswordPayload";
 import { sequelize } from "../db/db";
-import { Invite } from "../models/Invite.model";
-import { Permission } from "../models/Permission.model";
+import type { LoginPayload } from "../interfaces/LoginPayload";
+import { db } from "../db/db";
 import dotenv from "dotenv";
 dotenv.config();
 
+const {
+  invite: Invite,
+  permission: Permission,
+  refreshToken: RefreshToken,
+  role: Role,
+  user: User,
+  school: School
+} = db;
 export const signupController = async (req: Request, h: ResponseToolkit) => {
   try {
     const { firstName, email, password }: any = req.payload;
+    console.log(firstName, email, password);
     if (!firstName || !email || !password) {
       return error(
         null,
@@ -28,6 +33,7 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
     }
 
     const existingUser = await User.findOne({ where: { email } });
+    // console.log(existingUser)
     if (existingUser) {
       return error(
         null,
@@ -38,23 +44,36 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
 
     // Check if this is the first user (super_admin)
     const userCount = await User.count();
+    // console.log(userCount)
     let finalRoleId;
     let finalSchoolId;
 
     if (userCount === 0) {
       // First user must be super_admin, ignore provided role/schoolId
       // Create or get super_admin role
+
+      const [school, schoolCreated] = await School.findOrCreate({
+        where: { name: "Default School" }, 
+        defaults: {
+          id: crypto.randomUUID(),
+          name: "Default School",
+          // Other required fields for School
+        },
+      });
+
       const superAdminRole = await Role.findOrCreate({
         where: { title: "super_admin" },
         defaults: {
           title: "super_admin",
-          schoolId: crypto.randomUUID(),
+          schoolId: school.id,
         },
       });
+      // console.log("57 --> SA -->", superAdminRole);
       finalRoleId = (superAdminRole as any)[0].id;
-      finalSchoolId = null; // No school yet for super_admin
+      finalSchoolId = school.id;
     }
 
+    // console.log("finalRole --> 62 -->", finalRoleId);
     const hashedPassword = CryptoUtil.hashPassword(password, "10");
     const user = await User.create({
       firstName,
@@ -66,6 +85,7 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
       isTempPassword: userCount !== 0,
       system_defined: userCount === 0, // Only super_admin is system-defined
     });
+    // console.log("user --> 74 -->  ", user);
 
     return success(
       {
@@ -99,7 +119,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
       where: {
         [Op.or]: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
       },
-      // include: [Role],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
 
@@ -223,6 +243,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
           email: user.email,
           firstName: user.firstName,
           roleId: user.roleId,
+          role: user.role.title,
           schoolId: user.schoolId,
           isTempPassword: user.isTempPassword,
           system_defned: user.system_defined,

@@ -1,12 +1,11 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { Class } from "../models/Class.model";
-import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
-import { ClassStudent } from "../models/ClassStudent.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
+import { db } from "../db/db";
+
+const { class: Class, classStudent: ClassStudent, role: Role, user: User } = db;
 
 // Change Single Student Class
 export const changeStudentClass = async (

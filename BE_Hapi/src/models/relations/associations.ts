@@ -1,29 +1,34 @@
-import { Assignment } from "../Assignment.model";
-import { Attendance } from "../Attendance.model";
-import { Class } from "../Class.model";
-import { ClassSchedule } from "../ClassSchedule.model";
-import { ClassStudent } from "../ClassStudent.model";
-import { Complaint } from "../Complaint.model";
-import { Degree } from "../Degree.model";
-import { Department } from "../Department.model";
-import { Education } from "../Education.model";
-import { Event } from "../Event.model";
-import { ExamSchedule } from "../ExamSchedule.model";
-import { Experience } from "../Experience.model";
-import { GradingScale } from "../GradingScale.model";
-import { Invite } from "../Invite.model";
-import { Module } from "../Module.model";
-import { NoticeBoard } from "../NoticeBoard.model";
-import { Permission } from "../Permission.model";
-import { RefreshToken } from "../RefreshToken.model";
-import { Result } from "../Result.model";
-import { Role } from "../Role.model";
-import { School } from "../School.model";
-import { StudentAssignment } from "../StudentAssignment.model";
-import { Subject } from "../Subject.model";
-import { User } from "../User.model";
+import { db } from "db/db";
 
 export const setupAssociations = () => {
+  const {
+    assignment: Assignment,
+    attendance: Attendance,
+    classSchedule: ClassSchedule,
+    classStudent: ClassStudent,
+    class: Class,
+    complaint: Complaint,
+    degree: Degree,
+    department: Department,
+    education: Education,
+    experience: Experience,
+    event: Event,
+    examSchedule: ExamSchedule,
+    gradingScale: GradingScale,
+    invite: Invite,
+    module: Module,
+    permission: Permission,
+    refreshToken: RefreshToken,
+    studentAssignment: StudentAssignment,
+    result: Result,
+    noticeBoard: NoticeBoard,
+    school: School,
+    subject: Subject,
+    role: Role,
+    user: User,
+  } = db;
+
+  
   Assignment.belongsTo(Subject, { foreignKey: "subjectId", targetKey: "id" });
   Assignment.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
   Assignment.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
@@ -53,12 +58,12 @@ export const setupAssociations = () => {
   User.hasMany(Attendance, {
     foreignKey: "userId",
     sourceKey: "id",
-    as: "attendances",
+    // as: "attendances",
   });
   User.hasMany(Attendance, {
     foreignKey: "markedById",
     sourceKey: "id",
-    as: "markedAttendances",
+    // as: "markedAttendances",
   });
 
   //*********************** */
@@ -418,7 +423,7 @@ export const setupAssociations = () => {
     targetKey: "id",
     onDelete: "CASCADE",
   });
-  User.belongsTo(Role, { as: 'role', foreignKey: 'roleId', targetKey: 'id' })
+  User.belongsTo(Role, { as: "role", foreignKey: "roleId", targetKey: "id" });
   User.belongsTo(Department, { foreignKey: "departmentId", targetKey: "id" });
   User.belongsToMany(Assignment, {
     through: "StudentAssignment",

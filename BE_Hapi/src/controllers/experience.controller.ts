@@ -1,7 +1,4 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { sequelize } from "../db/db";
-import { Experience } from "../models/Experience.model";
-import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { uploadToClodinary, getCloudinaryPublicId } from "../config/cloudinary";
@@ -10,6 +7,9 @@ import type {
   CreateExperiencePayload,
   UpdateExperiencePayload,
 } from "../interfaces/ExperienceInterfaces";
+import { db } from "db/db";
+
+const { experience: Experience, user: User } = db;
 
 // Create Experience
 export const createExperience = async (

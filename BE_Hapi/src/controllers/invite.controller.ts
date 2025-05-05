@@ -2,18 +2,21 @@ import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { queueEmail } from "../services/emailQueue.service";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
-import { Invite } from "../models/Invite.model";
-import { User } from "../models/User.model";
 import { CryptoUtil } from "../utils/crypto.util";
 import crypto from "crypto";
-import { School } from "../models/School.model";
-import { Role } from "../models/Role.model";
-import { ClassStudent } from "../models/ClassStudent.model";
-import { Class } from "../models/Class.model";
 import { sequelize } from "../db/db";
 import type { CreateInvitePayload } from "../interfaces/EmailInterfaces";
 import { Op } from "sequelize";
-import { Permission } from "../models/Permission.model";
+import { db } from "../db/db";
+
+const {
+  class: Class,
+  classStudent: ClassStudent,
+  invite: Invite,
+  role: Role,
+  school: School,
+  user: User,
+} = db;
 
 const INVITE_EXPIRY_DAYS = 7;
 // send invite email
@@ -45,6 +48,7 @@ export const createAndSendInvite = async (
   const { email, role, className, firstName, lastName, priority } =
     request.payload as CreateInvitePayload;
   const { userId } = request.auth.credentials as any;
+  console.log("userId: --> ",userId)
 
   // Start transaction
   const transaction = await sequelize.transaction();
@@ -53,9 +57,14 @@ export const createAndSendInvite = async (
       where: { id: userId },
       transaction,
     })) as any;
+    console.log("sender --> ", sender)
     if (!sender || !sender.schoolId) {
       await transaction.rollback();
-      return error(null, "Sender not found or sender schoolId not found!", statusCodes.NOT_FOUND)(h);
+      return error(
+        null,
+        "Sender not found or sender schoolId not found!",
+        statusCodes.NOT_FOUND
+      )(h);
     }
     // Find or create role
     let roleRecord = (await Role.findOne({
@@ -161,10 +170,10 @@ export const createAndSendInvite = async (
 
     // Link to class if classId provided and role is "student"
     if (className && role.toLowerCase() === "student") {
-      const classRecord = await Class.findOne({
+      const classRecord = (await Class.findOne({
         where: { name: className, schoolId: sender.schoolId },
         transaction,
-      }) as any;
+      })) as any;
       if (!classRecord) {
         await transaction.rollback();
         return error(
@@ -542,10 +551,10 @@ export const updateInvite = async (request: Request, h: ResponseToolkit) => {
     }
 
     if (className && invite.role.title.toLowerCase() === "student") {
-      const classRecord = await Class.findOne({
+      const classRecord = (await Class.findOne({
         where: { name: className, schoolId: user.schoolId },
         transaction,
-      }) as any;
+      })) as any;
       if (!classRecord) {
         await transaction.rollback();
         return error(
@@ -596,7 +605,7 @@ export const bulkCreateInvites = async (
   request: Request,
   h: ResponseToolkit
 ) => {
-  const invites = request.payload as (CreateInvitePayload)[];
+  const invites = request.payload as CreateInvitePayload[];
   const { userId } = request.auth.credentials as any;
 
   if (!Array.isArray(invites) || invites.length === 0) {

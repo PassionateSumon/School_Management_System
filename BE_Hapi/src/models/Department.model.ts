@@ -1,27 +1,22 @@
-import { DataType } from "sequelize-typescript";
-import { sequelize } from "../db/db";
-import { School } from "./School.model";
-import { Class } from "./Class.model";
-import { User } from "./User.model";
-
-const Department = sequelize.define(
-  "Department",
-  {
-    id: {
-      type: DataType.UUID,
-      defaultValue: DataType.UUIDV4,
-      primaryKey: true,
+export default (sequelize: any, DataType: any) => {
+  const Department = sequelize.define(
+    "Department",
+    {
+      id: {
+        type: DataType.UUID,
+        defaultValue: DataType.UUIDV4,
+        primaryKey: true,
+      },
+      name: {
+        type: DataType.STRING,
+        allowNull: false,
+      },
+      schoolId: {
+        type: DataType.UUID,
+        allowNull: false,
+      },
     },
-    name: {
-      type: DataType.STRING,
-      allowNull: false,
-    },
-    schoolId: {
-      type: DataType.UUID,
-      allowNull: false,
-    },
-  },
-  { tableName: "Department", timestamps: true }
-);
-
-export { Department };
+    { tableName: "Department", timestamps: true }
+  );
+  return Department;
+};

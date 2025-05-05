@@ -1,13 +1,17 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { statusCodes } from "../config/constants";
-import { Class } from "../models/Class.model";
-import { ExamSchedule } from "../models/ExamSchedule.model";
-import { School } from "../models/School.model";
-import { Subject } from "../models/Subject.model";
-import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";
-import { ClassStudent } from "../models/ClassStudent.model";
 import { Op } from "sequelize";
+import { db } from "db/db";
+
+const {
+  class: Class,
+  ClassStudent: ClassStudent,
+  ExamSchedule: ExamSchedule,
+  school: School,
+  subject: Subject,
+  user: User,
+} = db;
 
 // Create Exam
 export const createExam = async (req: Request, h: ResponseToolkit) => {

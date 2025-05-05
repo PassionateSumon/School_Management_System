@@ -1,7 +1,5 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { Education } from "../models/Education.model";
-import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { uploadToClodinary, getCloudinaryPublicId } from "../config/cloudinary";
@@ -10,6 +8,9 @@ import type {
   CreateEducationPayload,
   UpdateEducationPayload,
 } from "../interfaces/EducationInterfaces";
+import { db } from "../db/db";
+
+const { education: Education, user: User } = db;
 
 // Create Education
 export const createEducation = async (request: Request, h: ResponseToolkit) => {

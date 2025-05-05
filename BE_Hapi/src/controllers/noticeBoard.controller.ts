@@ -1,14 +1,17 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { Op } from "sequelize";
 import { v2 as cloudinary } from "cloudinary";
 import { success, error } from "../utils/returnFunctions.util";
 import { uploadToClodinary, getCloudinaryPublicId } from "../config/cloudinary";
-import { School } from "../models/School.model";
 import { statusCodes } from "../config/constants";
-import { Class } from "../models/Class.model";
-import { Department } from "../models/Department.model";
-import { NoticeBoard } from "../models/NoticeBoard.model";
-import { User } from "../models/User.model";
+import { db } from "../db/db";
+
+const {
+  class: Class,
+  department: Department,
+  noticeBoard: NoticeBoard,
+  school: School,
+  user: User,
+} = db;
 
 // Create Notice
 export const createNotice = async (req: Request, h: ResponseToolkit) => {

@@ -1,16 +1,12 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { Class } from "../models/Class.model";
-import { Subject } from "../models/Subject.model";
-import { School } from "../models/School.model";
-import { Assignment } from "../models/Assignment.model";
-import { User } from "../models/User.model";
-import { ClassStudent } from "../models/ClassStudent.model";
 import { Op } from "sequelize";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
-import { StudentAssignment } from "../models/StudentAssignment.model";
 import { getCloudinaryPublicId, uploadToClodinary } from "../config/cloudinary";
 import { v2 as cloudinary } from "cloudinary";
+import { db } from "db/db";
+
+const { assignment: Assignment, class: Class, school: School, subject: Subject, user: User, studentAssignment: StudentAssignment, classStudent: ClassStudent } = db;
 
 // create the assignment
 export const createAssignment = async (req: Request, h: ResponseToolkit) => {

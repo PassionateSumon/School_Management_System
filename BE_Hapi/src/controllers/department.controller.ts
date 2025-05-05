@@ -1,10 +1,10 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { sequelize } from "../db/db";
-import { Department } from "../models/Department.model";
-import { School } from "../models/School.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
+import { db } from "db/db";
+
+const { department: Department, school: School } = db;
 
 // Create Department
 export const createDepartment = async (

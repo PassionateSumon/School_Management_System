@@ -1,9 +1,9 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
-import { Complaint } from "../models/Complaint.model";
-import { User } from "../models/User.model";
-import { Class } from "../models/Class.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
+import { db } from "db/db";
+
+const { class: Class, complaint: Complaint, user: User } = db;
 
 // Create Complaint
 export const createComplaint = async (request: Request, h: ResponseToolkit) => {
@@ -13,11 +13,11 @@ export const createComplaint = async (request: Request, h: ResponseToolkit) => {
     className?: string;
   };
   const { userId } = request.auth.credentials as any;
-  console.log(userId)
+  // console.log(userId)
 
   try {
     const user = (await User.findByPk(userId)) as any;
-    console.log(user)
+    console.log(user);
     if (!user || !user.schoolId) {
       return error(null, "User or school not found", statusCodes.NOT_FOUND)(h);
     }

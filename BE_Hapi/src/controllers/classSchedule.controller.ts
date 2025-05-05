@@ -1,14 +1,21 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { Class } from "../models/Class.model";
-import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
-import { Subject } from "../models/Subject.model";
-import { ClassSchedule } from "../models/ClassSchedule.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op, literal } from "sequelize";
-import type { ClassCreatePayload, ClassScheduleUpdatePayload } from "../interfaces/ClassInterfaces";
+import type {
+  ClassCreatePayload,
+  ClassScheduleUpdatePayload,
+} from "../interfaces/ClassInterfaces";
+import { db } from "../db/db";
+
+const {
+  class: Class,
+  classSchedule: ClassSchedule,
+  role: Role,
+  subject: Subject,
+  user: User,
+} = db;
 
 // Create ClassSchedule
 export const createClassSchedule = async (
@@ -93,36 +100,6 @@ export const createClassSchedule = async (
       await transaction.rollback();
       return error(null, "Teacher role not found", statusCodes.SERVER_ISSUE)(h);
     }
-
-    // if (user.role.title.toLowerCase() !== "super_admin") {
-    //   if (
-    //     user.role.priority > teacherRole.priority ||
-    //     (user.id !== teacher.id && user.role.priority >= teacherRole.priority)
-    //   ) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to schedule for other teachers",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    //   const hasPermission = (await user.$hasPermission({
-    //     module: "class-schedule",
-    //     action: "create",
-    //     targetType: "school",
-    //     targetId: user.schoolId,
-    //   })) as any;
-    //   if (!hasPermission) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to create class schedules",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    // }
-
-    // Validate date
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {

@@ -1,7 +1,5 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { Role } from "../models/Role.model";
-import { User } from "../models/User.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
@@ -9,6 +7,9 @@ import type {
   CreateRolePayload,
   UpdateRolePayload,
 } from "../interfaces/RoleInterfaces";
+import { db } from "../db/db";
+
+const { role: Role, user: User } = db;
 
 // Create Role
 export const createRole = async (request: Request, h: ResponseToolkit) => {

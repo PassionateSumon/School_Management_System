@@ -1,14 +1,14 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { School } from "../models/School.model";
-import { User } from "../models/User.model";
-import { Role } from "../models/Role.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
+import { db } from "../db/db";
+
+const { role: Role, school: School, user: User } = db;
 
 //*** GradeScale is remaining ***//
-// Permission is remaining ***// 
+// Permission is remaining ***//
 
 // Create School
 export const createSchool = async (request: Request, h: ResponseToolkit) => {
@@ -23,15 +23,15 @@ export const createSchool = async (request: Request, h: ResponseToolkit) => {
   try {
     // Validate user and super_admin role
     const user = (await User.findByPk(userId, {
-      // include: [{ model: Role, as: "role" }],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
-    console.log(user)
+    console.log(user);
     if (!user) {
       await transaction.rollback();
       return error(null, "User not found", statusCodes.NOT_FOUND)(h);
     }
-    
+
     const existingSchool = await School.findOne({
       where: { name: { [Op.eq]: name } },
       transaction,

@@ -1,11 +1,11 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
-import { Class } from "../models/Class.model";
-import { User } from "../models/User.model";
-import { School } from "../models/School.model";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
+import { db } from "../db/db";
+
+const { class: Class, school: School, user: User } = db;
 
 // Valid departments
 export const VALID_DEPARTMENTS = ["Arts", "Science", "Commerce", null];
@@ -28,24 +28,6 @@ export const createClass = async (request: Request, h: ResponseToolkit) => {
       await transaction.rollback();
       return error(null, "User or school not found", statusCodes.NOT_FOUND)(h);
     }
-
-    // Check if user is super_admin or has create permission
-    // if (user.role?.title.toLowerCase() !== "super_admin") {
-    //   const hasPermission = (await user.$hasPermission({
-    //     module: "class",
-    //     action: "create",
-    //     targetType: "school",
-    //     targetId: user.schoolId,
-    //   })) as any;
-    //   if (!hasPermission) {
-    //     await transaction.rollback();
-    //     return error(
-    //       null,
-    //       "Not authorized to create classes",
-    //       statusCodes.PERMISSION_DENIED
-    //     )(h);
-    //   }
-    // }
 
     const school = (await School.findByPk(user.schoolId, {
       transaction,
@@ -144,9 +126,7 @@ export const listClasses = async (request: Request, h: ResponseToolkit) => {
     const classes = await Class.findAll({
       where: { schoolId: user.schoolId },
       attributes: ["id", "name", "schoolId", "createdAt"],
-      order: [
-        ["name", "ASC"],
-      ],
+      order: [["name", "ASC"]],
     });
 
     return success(
@@ -176,13 +156,7 @@ export const getClass = async (request: Request, h: ResponseToolkit) => {
     }
 
     const classRecord = (await Class.findByPk(classId, {
-      attributes: [
-        "id",
-        "name",
-        "schoolId",
-        "createdAt",
-        "updatedAt",
-      ],
+      attributes: ["id", "name", "schoolId", "createdAt", "updatedAt"],
     })) as any;
 
     if (!classRecord) {
