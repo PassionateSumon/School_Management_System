@@ -123,7 +123,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
       transaction,
     })) as any;
 
-    // console.log("User: 102 -- ",user)
+    // console.log("User: 102 -- ",user.tempPassword)
 
     if (!user) {
       await transaction.rollback();
@@ -164,7 +164,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         );
 
         const invite = (await Invite.findOne({
-          where: { email: user.email, status: "pending" },
+          where: { receiverId: user.id, status: "pending" },
           transaction,
         })) as any;
         if (invite) {

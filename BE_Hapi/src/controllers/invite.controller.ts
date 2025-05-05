@@ -48,7 +48,7 @@ export const createAndSendInvite = async (
   const { email, role, className, firstName, lastName, priority } =
     request.payload as CreateInvitePayload;
   const { userId } = request.auth.credentials as any;
-  console.log("userId: --> ",userId)
+  // console.log("userId: --> ",userId)
 
   // Start transaction
   const transaction = await sequelize.transaction();
@@ -57,7 +57,7 @@ export const createAndSendInvite = async (
       where: { id: userId },
       transaction,
     })) as any;
-    console.log("sender --> ", sender)
+    // console.log("sender --> ", sender)
     if (!sender || !sender.schoolId) {
       await transaction.rollback();
       return error(
@@ -105,10 +105,7 @@ export const createAndSendInvite = async (
     let tempPassword: string;
     if (!user) {
       tempPassword = CryptoUtil.generateTempPassword();
-      const hashedPassword = CryptoUtil.hashPassword(
-        tempPassword,
-        roleRecord.id
-      );
+      const hashedPassword = CryptoUtil.hashPassword(tempPassword, "10");
       user = (await User.create(
         {
           username: crypto.randomUUID(),
@@ -121,6 +118,7 @@ export const createAndSendInvite = async (
           isActive: false,
           schoolId: sender.schoolId,
           roleId: roleRecord.id,
+          system_defined: false,
         },
         { transaction }
       )) as any;
