@@ -1,4 +1,3 @@
-
 export default (sequelize: any, DataType: any) => {
   const Result = sequelize.define(
     "Result",
@@ -52,7 +51,7 @@ export default (sequelize: any, DataType: any) => {
       },
       grade: {
         type: DataType.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       maxPoints: {
         type: DataType.FLOAT,

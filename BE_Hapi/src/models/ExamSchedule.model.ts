@@ -7,6 +7,10 @@ export default (sequelize: any, DataType: any) => {
         defaultValue: DataType.UUIDV4,
         primaryKey: true,
       },
+      teacherId: {
+        type: DataType.UUID,
+        allowNull: false,
+      },
       classId: {
         type: DataType.UUID,
         allowNull: false,

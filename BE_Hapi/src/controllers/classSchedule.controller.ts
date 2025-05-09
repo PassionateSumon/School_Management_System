@@ -2,7 +2,7 @@ import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { sequelize } from "../db/db";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
-import { Op, literal } from "sequelize";
+import { Op, QueryTypes, literal } from "sequelize";
 import type {
   ClassCreatePayload,
   ClassScheduleUpdatePayload,
@@ -29,7 +29,7 @@ export const createClassSchedule = async (
   const transaction = await sequelize.transaction();
   try {
     const user = (await User.findByPk(userId, {
-      include: [Role],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
     if (!user || !user.schoolId || !user.role) {
@@ -44,7 +44,7 @@ export const createClassSchedule = async (
     const classRecord = (await Class.findOne({
       where: {
         name: { [Op.eq]: classNameBase },
-        department: department ? { [Op.eq]: department } : null,
+        // department: department ? { [Op.eq]: department } : null,
         schoolId: user.schoolId,
       },
       transaction,
@@ -58,8 +58,8 @@ export const createClassSchedule = async (
     const teacher = (await User.findOne({
       where: {
         [Op.or]: [
-          { firstName: { [Op.eq]: teacherName } },
-          { lastName: { [Op.eq]: teacherName } },
+          { firstName: { [Op.eq]: teacherName.split(" ")[0] } },
+          { lastName: { [Op.eq]: teacherName.split(" ")[1] } },
           {
             [Op.and]: [
               { firstName: { [Op.eq]: teacherName.split(" ")[0] || "" } },
@@ -69,10 +69,10 @@ export const createClassSchedule = async (
         ],
         schoolId: user.schoolId,
       },
-      include: [Role],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
-    if (!teacher || teacher.role?.title.toLowerCase() !== "teacher") {
+    if (!teacher) {
       await transaction.rollback();
       return error(
         null,
@@ -89,16 +89,6 @@ export const createClassSchedule = async (
     if (!subject) {
       await transaction.rollback();
       return error(null, "Subject not found", statusCodes.NOT_FOUND)(h);
-    }
-
-    // Check if user is authorized
-    const teacherRole = (await Role.findOne({
-      where: { title: { [Op.eq]: "teacher" } },
-      transaction,
-    })) as any;
-    if (!teacherRole) {
-      await transaction.rollback();
-      return error(null, "Teacher role not found", statusCodes.SERVER_ISSUE)(h);
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -165,6 +155,16 @@ export const createClassSchedule = async (
       { transaction }
     )) as any;
 
+    const [results] = (await sequelize.query(
+      `
+      SELECT DAYNAME(:date) AS day_of_week
+    `,
+      {
+        replacements: { date: schedule.date },
+        type: QueryTypes.SELECT,
+      }
+    )) as any;
+
     await transaction.commit();
     return success(
       {
@@ -178,9 +178,7 @@ export const createClassSchedule = async (
         subjectId: schedule.subjectId,
         subjectName: subject.name,
         date: schedule.date,
-        dayOfWeek: sequelize.literal(
-          `DAYNAME(\`${schedule.getTableName()}\`.date)`
-        ),
+        dayOfWeek: results.day_of_week,
         startTime: schedule.startTime,
         endTime: schedule.endTime,
       },
@@ -236,7 +234,7 @@ export const getAllClassSchedules = async (
         "createdAt",
       ],
       include: [
-        { model: Class, attributes: ["name", "department"] },
+        { model: Class, attributes: ["name", "departmentId"] },
         {
           model: User,
           as: "teacher",

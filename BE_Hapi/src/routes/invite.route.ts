@@ -24,7 +24,7 @@ const inviteRoutes: ServerRoute[] = [
           email: Joi.string().email().required(),
           role: Joi.string().required(),
           firstName: Joi.string().required(),
-          className: Joi.string().uuid().optional(),
+          className: Joi.string().optional(),
           lastName: Joi.string().optional(),
           priority: Joi.number().integer().min(1).optional(),
         }),

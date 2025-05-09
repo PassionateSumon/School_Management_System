@@ -18,7 +18,7 @@ const {
   refreshToken: RefreshToken,
   role: Role,
   user: User,
-  school: School
+  school: School,
 } = db;
 export const signupController = async (req: Request, h: ResponseToolkit) => {
   try {
@@ -53,7 +53,7 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
       // Create or get super_admin role
 
       const [school, schoolCreated] = await School.findOrCreate({
-        where: { name: "Default School" }, 
+        where: { name: "Default School" },
         defaults: {
           id: crypto.randomUUID(),
           name: "Default School",
@@ -162,6 +162,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
           { isTempPassword: false, tempPassword: null, isActive: true },
           { transaction }
         );
+        console.log("temp password field change: ", user)
 
         const invite = (await Invite.findOne({
           where: { receiverId: user.id, status: "pending" },
@@ -192,6 +193,8 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         }
       }
     } else {
+      console.log("entered password: -- 196 --> ", password)
+      console.log("having password: -- 197 --> ", user.password)
       isPasswordMatch = CryptoUtil.verifyPassword(
         password,
         "10",
@@ -203,6 +206,8 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
       await transaction.rollback();
       return error(null, "Invalid password!", statusCodes.UNAUTHORIZED)(h);
     }
+
+    const schoolName = (await School.findByPk(user.schoolId))?.name;
 
     // Generate tokens
     const accessToken = JWTUtil.generateAccessToken(user.id, user.roleId);
@@ -245,6 +250,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
           roleId: user.roleId,
           role: user.role.title,
           schoolId: user.schoolId,
+          schoolName: schoolName,
           isTempPassword: user.isTempPassword,
           system_defned: user.system_defined,
           isActive: user.isActive,
@@ -273,6 +279,19 @@ export const logoutController = async (req: Request, h: ResponseToolkit) => {
     if (deletedCount === 0) {
       return error(null, "Refresh token not found!", 404)(h);
     }
+
+    // Unset cookies
+    h.unstate("accessToken", {
+      path: "/",
+      // isSecure: process.env.NODE_ENV === "production",
+      isHttpOnly: true,
+    });
+
+    h.unstate("refreshToken", {
+      path: "/",
+      // isSecure: process.env.NODE_ENV === "production",
+      isHttpOnly: true,
+    });
 
     return success(
       deletedCount,

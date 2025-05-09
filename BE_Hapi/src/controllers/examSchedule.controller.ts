@@ -6,8 +6,9 @@ import { db } from "db/db";
 
 const {
   class: Class,
-  ClassStudent: ClassStudent,
-  ExamSchedule: ExamSchedule,
+  classSchedule: ClassSchedule,
+  classStudent: ClassStudent,
+  examSchedule: ExamSchedule,
   school: School,
   subject: Subject,
   user: User,
@@ -27,6 +28,7 @@ export const createExam = async (req: Request, h: ResponseToolkit) => {
       endTime,
       roomNo,
     } = req.payload as any;
+    // console.log(req.payload)
 
     const schoolExists = await School.findByPk(schoolId);
     if (!schoolExists) {
@@ -36,6 +38,7 @@ export const createExam = async (req: Request, h: ResponseToolkit) => {
         statusCodes.NOT_FOUND
       )(h);
     }
+    // console.log(schoolExists)
     const classExists = await Class.findByPk(classId);
     if (!classExists) {
       return error(
@@ -44,6 +47,7 @@ export const createExam = async (req: Request, h: ResponseToolkit) => {
         statusCodes.NOT_FOUND
       )(h);
     }
+    // console.log(classExists)
     if (invigilatorId && !(await User.findByPk(invigilatorId))) {
       return error(
         { error: "Invalid invigilator" },
@@ -59,7 +63,9 @@ export const createExam = async (req: Request, h: ResponseToolkit) => {
         statusCodes.NOT_FOUND
       )(h);
     }
+    // console.log(subjectExists)
 
+    // console.log(classId, schoolId, invigilatorId || null, subjectId, date, type, startTime, endTime, roomNo);
     const exam = await ExamSchedule.create({
       classId,
       schoolId,
@@ -71,6 +77,7 @@ export const createExam = async (req: Request, h: ResponseToolkit) => {
       endTime,
       roomNo,
     });
+    // console.log(exam)
 
     return success(
       { exam },
@@ -131,7 +138,7 @@ export const getAllExams = async (req: Request, h: ResponseToolkit) => {
         where: { studentId: userId },
         attributes: ["classId"],
       });
-      const teacherClasses = await Class.findAll({
+      const teacherClasses = await ClassSchedule.findAll({
         where: { teacherId: userId },
         attributes: ["id"],
       });
@@ -144,6 +151,8 @@ export const getAllExams = async (req: Request, h: ResponseToolkit) => {
         where.classId = { [Op.in]: classIds };
       }
     }
+
+    // console.log("Get all exams --> 155 --> ", where);
 
     // Fetch exams
     const exams = await ExamSchedule.findAll({
@@ -160,6 +169,7 @@ export const getAllExams = async (req: Request, h: ResponseToolkit) => {
         { model: Subject, attributes: ["name"], as: "Subject" },
       ],
     });
+    console.log(exams)
 
     return success(
       { exams },

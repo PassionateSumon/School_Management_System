@@ -164,6 +164,7 @@ export const getSchool = async (request: Request, h: ResponseToolkit) => {
 
 // Update School
 export const updateSchool = async (request: Request, h: ResponseToolkit) => {
+  // console.log(request.params);
   const { schoolId } = request.params;
   const { name, address } = request.payload as {
     name?: string;
@@ -171,10 +172,12 @@ export const updateSchool = async (request: Request, h: ResponseToolkit) => {
   };
   const { userId } = request.auth.credentials as any;
 
+  // console.log("update school --> ", userId, schoolId, name);
+
   const transaction = await sequelize.transaction();
   try {
     const user = (await User.findByPk(userId, {
-      include: [Role],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
     if (!user) {
@@ -204,7 +207,7 @@ export const updateSchool = async (request: Request, h: ResponseToolkit) => {
     // Check for duplicate name (if name is updated)
     if (name && name !== school.name) {
       const existingSchool = (await School.findOne({
-        where: { name: { [Op.iLike]: name }, id: { [Op.ne]: schoolId } },
+        where: { name: { [Op.eq]: name }, id: { [Op.ne]: schoolId } },
         transaction,
       })) as any;
       if (existingSchool) {
@@ -218,7 +221,7 @@ export const updateSchool = async (request: Request, h: ResponseToolkit) => {
     }
 
     // Update school
-    await school.update({ name, address }, { transaction });
+    await school.update({ name, address: address || school?.address }, { transaction });
 
     await transaction.commit();
     return success(

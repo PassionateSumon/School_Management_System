@@ -16,6 +16,7 @@ const {
 // Create Event
 export const createEvent = async (req: Request, h: ResponseToolkit) => {
   try {
+    console.log("here event controller");
     const {
       title,
       description,
@@ -27,6 +28,8 @@ export const createEvent = async (req: Request, h: ResponseToolkit) => {
       scope,
       link,
     } = req.payload as any;
+
+    console.log("event --> ", req.payload);
 
     const schoolExists = await School.findByPk(schoolId);
     if (!schoolExists) {

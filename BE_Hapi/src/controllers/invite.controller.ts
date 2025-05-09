@@ -112,7 +112,7 @@ export const createAndSendInvite = async (
           email,
           firstName,
           lastName,
-          password: hashedPassword,
+          password: "",
           tempPassword: hashedPassword,
           isTempPassword: true,
           isActive: false,

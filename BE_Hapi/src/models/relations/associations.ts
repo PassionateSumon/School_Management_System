@@ -28,7 +28,6 @@ export const setupAssociations = () => {
     user: User,
   } = db;
 
-  
   Assignment.belongsTo(Subject, { foreignKey: "subjectId", targetKey: "id" });
   Assignment.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
   Assignment.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
@@ -113,7 +112,7 @@ export const setupAssociations = () => {
   //************** */
 
   ClassSchedule.belongsTo(Class, { foreignKey: "classId", targetKey: "id" });
-  ClassSchedule.belongsTo(User, { foreignKey: "teacherId", targetKey: "id" });
+  ClassSchedule.belongsTo(User, { foreignKey: "teacherId", targetKey: "id", as: "teacher" });
   ClassSchedule.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
   ClassSchedule.hasMany(Attendance, {
     foreignKey: "classScheduleId",
@@ -313,7 +312,11 @@ export const setupAssociations = () => {
   });
   //************/
 
-  Role.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
+  Role.belongsTo(School, {
+    foreignKey: "schoolId",
+    targetKey: "id",
+    as: "role",
+  });
   Role.hasMany(User, {
     foreignKey: "roleId",
     sourceKey: "id",
@@ -373,7 +376,7 @@ export const setupAssociations = () => {
   School.hasMany(Role, {
     foreignKey: "schoolId",
     sourceKey: "id",
-    as: "roles",
+    as: "role",
   });
   School.hasMany(ExamSchedule, {
     foreignKey: "schoolId",
@@ -481,7 +484,7 @@ export const setupAssociations = () => {
   User.hasMany(ClassSchedule, {
     foreignKey: "teacherId",
     sourceKey: "id",
-    as: "teacherSchedules",
+    as: "teacher",
   });
   User.hasMany(Complaint, {
     foreignKey: "userId",

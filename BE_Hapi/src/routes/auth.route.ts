@@ -2,8 +2,10 @@ import type { ServerRoute } from "@hapi/hapi";
 import {
   loginController,
   logoutController,
+  refreshController,
   resetPassword,
   signupController,
+  verifyTokenController,
 } from "../controllers/auth.controller";
 import Joi from "joi";
 
@@ -95,6 +97,26 @@ const authRoutes: ServerRoute[] = [
         parse: true,
         output: "data",
       },
+    },
+  },
+  {
+    method: "POST",
+    path: "/refresh",
+    handler: refreshController,
+    options: {
+      tags: ["api", "auth"],
+      description: "Refresh the token of the user.",
+      auth: "jwt_access",
+    },
+  },
+  {
+    method: "GET",
+    path: "/verify-token",
+    handler: verifyTokenController,
+    options: {
+      tags: ["api", "auth"],
+      description: "Verify token of the user.",
+      auth: "jwt_access",
     },
   },
 ];

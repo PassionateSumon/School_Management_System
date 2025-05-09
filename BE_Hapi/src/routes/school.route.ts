@@ -7,6 +7,7 @@ import {
   listSchools,
   updateSchool,
 } from "../controllers/school.controller";
+import { JWTUtil } from "utils/jwtAll.util";
 
 const schoolRoutes: ServerRoute[] = [
   {
@@ -15,6 +16,7 @@ const schoolRoutes: ServerRoute[] = [
     handler: createSchool,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Create a new school",
       tags: ["api", "schools"],
       validate: {
@@ -35,7 +37,7 @@ const schoolRoutes: ServerRoute[] = [
       payload: {
         parse: true,
         output: "data",
-      }
+      },
     },
   },
   {
@@ -44,6 +46,7 @@ const schoolRoutes: ServerRoute[] = [
     handler: listSchools,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "List all schools",
       tags: ["api", "schools"],
     },
@@ -54,6 +57,7 @@ const schoolRoutes: ServerRoute[] = [
     handler: getSchool,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Get details of a specific school",
       tags: ["api", "schools"],
       validate: {
@@ -64,11 +68,12 @@ const schoolRoutes: ServerRoute[] = [
     },
   },
   {
-    method: "PATCH",
+    method: "PUT",
     path: "/schools/{schoolId}",
     handler: updateSchool,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Update a school",
       tags: ["api", "schools"],
       validate: {
@@ -79,7 +84,21 @@ const schoolRoutes: ServerRoute[] = [
           name: Joi.string().min(3).max(100).optional(),
           address: Joi.string().max(255).optional().allow(""),
         }).min(1),
+
+        failAction: (request, h, err: any) => {
+          // console.log(err);
+          const errorMessage =
+            err?.details?.[0]?.message || "Invalid request payload.";
+          return h
+            .response({ status: "Failed", error: errorMessage })
+            .code(400)
+            .takeover();
+        },
       },
+      payload: {
+        parse: true,
+        output: "data",
+      }
     },
   },
   {
@@ -88,6 +107,7 @@ const schoolRoutes: ServerRoute[] = [
     handler: deleteSchool,
     options: {
       auth: "jwt_access",
+      pre: [JWTUtil.verifyRole("super_admin")],
       description: "Delete a school",
       tags: ["api", "schools"],
       validate: {

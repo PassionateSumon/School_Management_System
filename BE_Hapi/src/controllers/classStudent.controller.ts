@@ -28,7 +28,7 @@ export const changeStudentClass = async (
 
     const student = (await User.findOne({
       where: { id: studentId, schoolId: user.schoolId },
-      include: [Role],
+      include: [{ model: Role, as: "role" }],
       transaction,
     })) as any;
     if (!student || student.role?.title.toLowerCase() !== "student") {
@@ -46,7 +46,7 @@ export const changeStudentClass = async (
     const classRecord = (await Class.findOne({
       where: {
         name: { [Op.eq]: classNameBase },
-        department: department ? { [Op.eq]: department } : null,
+        // department: department ? { [Op.eq]: department } : null,
         schoolId: user.schoolId,
       },
       transaction,
