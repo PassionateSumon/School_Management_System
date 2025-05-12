@@ -4,7 +4,7 @@ import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { getCloudinaryPublicId, uploadToClodinary } from "../config/cloudinary";
 import { v2 as cloudinary } from "cloudinary";
-import { db } from "db/db";
+import { db } from "../db/db";
 
 const { assignment: Assignment, class: Class, school: School, subject: Subject, user: User, studentAssignment: StudentAssignment, classStudent: ClassStudent } = db;
 

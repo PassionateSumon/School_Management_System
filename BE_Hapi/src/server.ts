@@ -25,9 +25,6 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-let User = db.user;
-let RefreshToken = db.refreshToken;
-
 const verifyToken = (token: string, secret: string) => {
   try {
     return jwt.verify(token, secret) as { userId: string };
@@ -38,22 +35,19 @@ const verifyToken = (token: string, secret: string) => {
 
 const validateAccess = async (req: Hapi.Request, token: string) => {
   try {
-    // console.log("24 - token -- ", token);
     if (!token) {
       throw new ApiError("No accessToken found in Cookie!", 401);
     }
     const accessSecret = process.env.JWT_ACCESS_SECRET;
-    // console.log("29 - secret -- ", accessSecret);
     if (!accessSecret) {
       throw new ApiError("Access Secret is not found in environment!", 401);
     }
 
     const decoded = verifyToken(token, accessSecret) as any;
-    // console.log("34 - decoded -- ", decoded);
 
-    const user = (await User.findOne({
+    const user = await db.user.findOne({
       where: { id: decoded?.userId },
-    })) as any;
+    });
     if (!user) {
       throw new ApiError("User not found!", 401);
     }
@@ -89,9 +83,9 @@ const validateRefresh = async (req: Hapi.Request) => {
 
     const decoded = verifyToken(token, refreshSecret) as any;
 
-    const refreshToken = (await RefreshToken.findOne({
+    const refreshToken = await db.refreshToken.findOne({
       where: { token, userId: decoded.userId },
-    })) as any;
+    });
     if (!refreshToken || refreshToken.expiresAt < new Date()) {
       throw new ApiError(
         "Invalid or expired refresh token!",
@@ -99,9 +93,9 @@ const validateRefresh = async (req: Hapi.Request) => {
       );
     }
 
-    const user = (await User.findOne({
+    const user = await db.user.findOne({
       where: { id: decoded.userId },
-    })) as any;
+    });
     if (!user || !user.isActive) {
       throw new ApiError(
         "User not found or inactive!",
@@ -129,7 +123,6 @@ const ORIGIN = process.env.DEV_ORIGIN || "http://localhost:5173";
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 3000,
-    // host: "localhost",
     host: "0.0.0.0",
     routes: {
       cors: {
@@ -157,7 +150,7 @@ const init = async () => {
 
   await server.register(Jwt);
   await server.register(Cookie);
-  await registerSwagger(server); // swagger register
+  await registerSwagger(server);
 
   server.auth.strategy("jwt_access", "cookie", {
     cookie: {
@@ -171,7 +164,6 @@ const init = async () => {
     validate: validateAccess,
   });
 
-  // Define custom scheme for refresh token
   server.auth.scheme("custom-refresh", () => {
     return {
       authenticate: async (request: Hapi.Request, h: Hapi.ResponseToolkit) => {
@@ -184,13 +176,10 @@ const init = async () => {
     };
   });
 
-  // Register refresh token strategy using the custom scheme
   server.auth.strategy("jwt_refresh", "custom-refresh");
 
-  // default strategy
   server.auth.default("jwt_access");
 
-  // All routes
   server.route(indexRoutes);
 
   server.events.on("response", function (req) {
@@ -201,13 +190,17 @@ const init = async () => {
     );
   });
 
-  connectDB().then(async () => { 
+  try {
+    await connectDB();
     await server.start();
     console.log(`Server is running on ${server.info.uri}`);
     console.log(
       `Swagger is running on http://localhost:${process.env.PORT}/documentation`
     );
-  });
+  } catch (error) {
+    console.error("Unable to connect to the database or start server:", error);
+    process.exit(1);
+  }
 };
 
 process.on("unhandledRejection", (err) => {

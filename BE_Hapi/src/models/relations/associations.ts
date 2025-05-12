@@ -1,4 +1,4 @@
-import { db } from "db/db";
+import { db } from "../../db/db";
 
 export const setupAssociations = () => {
   const {
@@ -185,7 +185,7 @@ export const setupAssociations = () => {
 
   GradingScale.belongsTo(School, { foreignKey: "schoolId", targetKey: "id" });
   GradingScale.hasOne(School, {
-    foreignKey: "gradingScaleId",
+    foreignKey: "gradeScaleId",
     sourceKey: "id",
     as: "school",
   });
@@ -330,9 +330,9 @@ export const setupAssociations = () => {
   //*********/
 
   School.belongsTo(GradingScale, {
-    foreignKey: "gradingScaleId",
+    foreignKey: "gradeScaleId",
     targetKey: "id",
-    as: "gradingScale",
+    as: "gradeScale",
   });
   School.hasMany(Degree, {
     foreignKey: "schoolId",

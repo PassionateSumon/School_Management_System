@@ -20,10 +20,11 @@ const {
   user: User,
   school: School,
 } = db;
+
 export const signupController = async (req: Request, h: ResponseToolkit) => {
   try {
     const { firstName, email, password }: any = req.payload;
-    console.log(firstName, email, password);
+    // console.log(firstName, email, password);
     if (!firstName || !email || !password) {
       return error(
         null,
@@ -44,36 +45,35 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
 
     // Check if this is the first user (super_admin)
     const userCount = await User.count();
-    // console.log(userCount)
     let finalRoleId;
     let finalSchoolId;
 
     if (userCount === 0) {
-      // First user must be super_admin, ignore provided role/schoolId
-      // Create or get super_admin role
-
-      const [school, schoolCreated] = await School.findOrCreate({
+      const [school] = await School.findOrCreate({
         where: { name: "Default School" },
         defaults: {
           id: crypto.randomUUID(),
           name: "Default School",
-          // Other required fields for School
+          address: null,
+          contactEmail: null,
+          isActive: true,
         },
       });
 
-      const superAdminRole = await Role.findOrCreate({
+      const [superAdminRole] = await Role.findOrCreate({
         where: { title: "super_admin" },
         defaults: {
+          id: crypto.randomUUID(),
           title: "super_admin",
           schoolId: school.id,
+          priority: 1,
         },
       });
-      // console.log("57 --> SA -->", superAdminRole);
-      finalRoleId = (superAdminRole as any)[0].id;
+
+      finalRoleId = superAdminRole.id;
       finalSchoolId = school.id;
     }
 
-    // console.log("finalRole --> 62 -->", finalRoleId);
     const hashedPassword = CryptoUtil.hashPassword(password, "10");
     const user = await User.create({
       firstName,
@@ -91,7 +91,6 @@ export const signupController = async (req: Request, h: ResponseToolkit) => {
       {
         userName: (user as any).username,
         userId: (user as any).id,
-        tempPassword: (user as any).tempPassword,
       },
       userCount === 0
         ? "Super admin created successfully"
@@ -162,7 +161,7 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
           { isTempPassword: false, tempPassword: null, isActive: true },
           { transaction }
         );
-        console.log("temp password field change: ", user)
+        // console.log("temp password field change: ", user);
 
         const invite = (await Invite.findOne({
           where: { receiverId: user.id, status: "pending" },
@@ -193,8 +192,8 @@ export const loginController = async (req: Request, h: ResponseToolkit) => {
         }
       }
     } else {
-      console.log("entered password: -- 196 --> ", password)
-      console.log("having password: -- 197 --> ", user.password)
+      // console.log("entered password: -- 196 --> ", password);
+      // console.log("having password: -- 197 --> ", user.password);
       isPasswordMatch = CryptoUtil.verifyPassword(
         password,
         "10",

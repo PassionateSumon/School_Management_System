@@ -1,7 +1,7 @@
 import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { success, error } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
-import { db } from "db/db";
+import { db } from "../db/db";
 
 const { degree: Degree, school: School } = db;
 

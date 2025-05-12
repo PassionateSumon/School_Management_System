@@ -2,7 +2,7 @@ import type { Request, ResponseToolkit } from "@hapi/hapi";
 import { error, success } from "../utils/returnFunctions.util";
 import { statusCodes } from "../config/constants";
 import { Op } from "sequelize";
-import { db } from "db/db";
+import { db } from "../db/db";
 
 const { department: Department, school: School } = db;
 

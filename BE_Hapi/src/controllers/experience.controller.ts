@@ -7,7 +7,7 @@ import type {
   CreateExperiencePayload,
   UpdateExperiencePayload,
 } from "../interfaces/ExperienceInterfaces";
-import { db } from "db/db";
+import { db } from "../db/db";
 
 const { experience: Experience, user: User } = db;
 

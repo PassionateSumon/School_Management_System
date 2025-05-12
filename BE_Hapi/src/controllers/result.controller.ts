@@ -1,7 +1,7 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import { statusCodes } from "../config/constants";
 import { success, error } from "../utils/returnFunctions.util";
-import { db } from "db/db";
+import { db } from "../db/db";
 
 const {
   assignment: Assignment,
